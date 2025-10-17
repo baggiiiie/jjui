@@ -344,9 +344,16 @@ func (m Model) View() string {
 
 	if m.stacked != nil {
 		stackedView := m.stacked.View()
-		w, h := lipgloss.Size(stackedView)
-		sx := (m.Width - w) / 2
-		sy := (m.Height - h) / 2
+		sw, sh := lipgloss.Size(stackedView)
+		cw, ch := lipgloss.Size(centerView)
+		sx := (cw - sw) / 2
+		sy := (ch - sh) / 2
+		if sx < 0 {
+			sx = 0
+		}
+		if sy < 0 {
+			sy = 0
+		}
 		centerView = screen.Stacked(centerView, stackedView, sx, sy)
 	}
 

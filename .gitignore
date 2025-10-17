@@ -4,3 +4,7 @@
 .idea/
 .DS_Store
 debug.log
+
+.cache
+.gocache
+jjui*
