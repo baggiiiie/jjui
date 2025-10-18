@@ -11,7 +11,7 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/idursun/jjui/internal/ui/common"
 )
 
@@ -27,6 +27,7 @@ type MainCommandRunner struct {
 }
 
 func (a *MainCommandRunner) RunCommandImmediate(args []string) ([]byte, error) {
+	log.Println("running command", args)
 	c := exec.Command("jj", args...)
 	c.Dir = a.Location
 	if output, err := c.Output(); err != nil {
