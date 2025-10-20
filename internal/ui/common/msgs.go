@@ -1,6 +1,7 @@
 package common
 
 import (
+	"log"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -87,6 +88,7 @@ func ToggleHelp() tea.Msg {
 func CommandRunning(args []string) tea.Cmd {
 	return func() tea.Msg {
 		command := "jj " + strings.Join(args, " ")
+		log.Println("CommandRunning:", command)
 		return CommandRunningMsg(command)
 	}
 }

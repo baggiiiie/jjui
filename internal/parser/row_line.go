@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"log"
 	"strconv"
 	"strings"
 
@@ -32,6 +33,12 @@ func (gr *GraphRowLine) findNextPrefix(startIdx int) int {
 }
 
 func (gr *GraphRowLine) ParseRowPrefixes() (int, string, string, bool) {
+	log.Println("========new segment below========")
+	segments := ""
+	for _, segment := range gr.Segments {
+		segments += segment.Text + "/"
+	}
+	log.Println(segments)
 	changeIDIdx := -1
 	for i, segment := range gr.Segments {
 		if isChangeIDLike(segment.Text) {
@@ -62,6 +69,7 @@ func (gr *GraphRowLine) ParseRowPrefixes() (int, string, string, bool) {
 
 	// Remove changeID, commitID, and isDivergent prefixes
 	gr.Segments = append(gr.Segments[:changeIDIdx], gr.Segments[isDivergentIdx+1:]...)
+	log.Printf("after parsing: %s, %s, %v\n", changeID, commitID, isDivergent)
 
 	return changeIDIdx, changeID, commitID, isDivergent
 }

@@ -63,6 +63,7 @@ func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batc
 				}
 				if isDivergent {
 					row.Commit.ChangeId = fullChangeID
+					// log.Printf("Change is divergent, update ChangeId to: %s\n", row.Commit.ChangeId)
 				}
 			}
 			row.AddLine(&rowLine)

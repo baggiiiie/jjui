@@ -27,6 +27,7 @@ type MainCommandRunner struct {
 }
 
 func (a *MainCommandRunner) RunCommandImmediate(args []string) ([]byte, error) {
+	log.Println("RunCommandImmediate:", args)
 	c := exec.Command("jj", args...)
 	c.Dir = a.Location
 	if output, err := c.Output(); err != nil {
@@ -41,6 +42,7 @@ func (a *MainCommandRunner) RunCommandImmediate(args []string) ([]byte, error) {
 }
 
 func (a *MainCommandRunner) RunCommandStreaming(ctx context.Context, args []string) (*StreamingCommand, error) {
+	log.Println("RunCommandStreaming:", args)
 	c := exec.CommandContext(ctx, "jj", args...)
 	c.Dir = a.Location
 	pipe, err := c.StdoutPipe()
@@ -69,6 +71,7 @@ func (a *MainCommandRunner) RunCommand(args []string, continuations ...tea.Cmd) 
 			if !slices.Contains(args, "--color") {
 				args = append([]string{"--color", "always"}, args...)
 			}
+			log.Println("RunCommand:", args)
 			c := exec.Command("jj", args...)
 			c.Dir = a.Location
 			var output bytes.Buffer
@@ -93,6 +96,7 @@ func (a *MainCommandRunner) RunCommand(args []string, continuations ...tea.Cmd) 
 }
 
 func (a *MainCommandRunner) RunInteractiveCommand(args []string, continuation tea.Cmd) tea.Cmd {
+	log.Println("RunInteractiveCommand:", args)
 	c := exec.Command("jj", args...)
 	errBuffer := &bytes.Buffer{}
 	c.Stderr = errBuffer
