@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"log"
 	"strings"
 	"unicode"
 
@@ -165,10 +166,11 @@ func (row *Row) AddLine(line *GraphRowLine) {
 			line.Flags = Elided
 		} else {
 			if row.Commit.CommitId == "" {
-				commitIdIdx := line.FindPossibleCommitIdIdx(0)
-				if commitIdIdx != -1 {
-					row.Commit.CommitId = line.Segments[commitIdIdx].Text
-					line.Flags = Revision | Highlightable
+				id, err := line.GetCommitID()
+				if err != nil {
+					log.Printf("getting CommitID failed, ChangeID %s: %s", row.Commit.ChangeId, err)
+				} else {
+					row.Commit.CommitId = id
 				}
 			}
 			lastLine := row.Lines[len(row.Lines)-1]
@@ -190,15 +192,6 @@ func (row *Row) Last(flag RowLineFlags) *GraphRowLine {
 func isChangeIdLike(s string) bool {
 	for _, r := range s {
 		if !unicode.IsLetter(r) {
-			return false
-		}
-	}
-	return true
-}
-
-func isHexLike(s string) bool {
-	for _, r := range s {
-		if !unicode.Is(unicode.Hex_Digit, r) {
 			return false
 		}
 	}

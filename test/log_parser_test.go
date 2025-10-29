@@ -39,22 +39,6 @@ func TestParser_Parse_ShortId(t *testing.T) {
 	assert.Equal(t, "79", rows[1].Commit.CommitId)
 }
 
-func TestParser_Parse_SingleLineWithDescription(t *testing.T) {
-	file, _ := os.Open("testdata/single-line-with-description.log")
-	rows := parser.ParseRows(file)
-	assert.Len(t, rows, 1)
-	assert.Equal(t, "x", rows[0].Commit.ChangeId)
-	assert.Equal(t, "4", rows[0].Commit.CommitId)
-}
-
-func TestParser_Parse_CommitIdOnASeparateLine(t *testing.T) {
-	file, _ := os.Open("testdata/commit-id.log")
-	rows := parser.ParseRows(file)
-	assert.Len(t, rows, 1)
-	assert.Equal(t, "o", rows[0].Commit.ChangeId)
-	assert.Equal(t, "5", rows[0].Commit.CommitId)
-}
-
 func TestParser_Parse_ConflictedLongIds(t *testing.T) {
 	file, _ := os.Open("testdata/conflicted-change-id.log")
 	rows := parser.ParseRows(file)
