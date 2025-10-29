@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/idursun/jjui/internal/screen"
@@ -28,14 +29,12 @@ func (gr *GraphRowLine) FindPossibleChangeIdIdx() int {
 	return -1
 }
 
-func (gr *GraphRowLine) FindPossibleCommitIdIdx(after int) int {
-	for i := after; i < len(gr.Segments); i++ {
-		segment := gr.Segments[i]
-		if isHexLike(segment.Text) {
-			return i
-		}
+func (gr *GraphRowLine) GetCommitID() (string, error) {
+	segmentsLen := len(gr.Segments)
+	if segmentsLen < 2 {
+		return "", fmt.Errorf("GraphRowLine.Segments has less than 2 elements")
 	}
-	return -1
+	return gr.Segments[segmentsLen-2].Text, nil
 }
 
 func (gr *GraphRowLine) chop(indent int) {
@@ -89,7 +88,6 @@ func (gr *GraphRowLine) chop(indent int) {
 		lastSegment := gr.Gutter.Segments[len(gr.Gutter.Segments)-1]
 		lastSegment.Text += strings.Repeat(" ", indent)
 	}
-
 }
 
 func (gr *GraphRowLine) containsRune(r rune) bool {

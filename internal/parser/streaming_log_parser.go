@@ -2,6 +2,7 @@ package parser
 
 import (
 	"io"
+	"log"
 	"strings"
 	"unicode/utf8"
 
@@ -50,7 +51,7 @@ func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batc
 					rows = append(rows, previousRow)
 					row.Previous = &previousRow
 				}
-				for j := 0; j < changeIdIdx; j++ {
+				for j := range changeIdIdx {
 					row.Indent += utf8.RuneCountInString(rowLine.Segments[j].Text)
 				}
 				row.Commit.ChangeId = rowLine.Segments[changeIdIdx].Text
@@ -68,8 +69,11 @@ func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batc
 					row.Commit.ChangeId = fullChangeId
 				}
 
-				if commitIdIdx := rowLine.FindPossibleCommitIdIdx(changeIdIdx); commitIdIdx != -1 {
-					row.Commit.CommitId = rowLine.Segments[commitIdIdx].Text
+				id, err := rowLine.GetCommitID()
+				if err != nil {
+					log.Printf("getting CommitID failed: %s", err)
+				} else {
+					row.Commit.CommitId = id
 				}
 			}
 			row.AddLine(&rowLine)
@@ -90,7 +94,7 @@ func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batc
 				}
 			}
 		}
-		_ = <-controlChannel
+		<-controlChannel
 	}()
 	return rowsChan, nil
 }
