@@ -23,9 +23,7 @@ func NewGraphRowLine(segments []*screen.Segment) GraphRowLine {
 
 func (gr *GraphRowLine) findNextPrefix(startIdx int) int {
 	for i := startIdx + 1; i < len(gr.Segments); i++ {
-		if strings.TrimSpace(gr.Segments[i].Text) != "" &&
-			// Prefixes are separated by `-`
-			strings.TrimSpace(gr.Segments[i].Text) != "-" {
+		if strings.TrimSpace(gr.Segments[i].Text) != "" {
 			return i
 		}
 	}
@@ -50,19 +48,19 @@ func (gr *GraphRowLine) ParseRowPrefixes() (int, string, string, bool) {
 	if changeIDIdx == -1 {
 		return -1, "", "", false
 	}
-	changeID := gr.Segments[changeIDIdx].Text
+	changeID := strings.TrimSpace(gr.Segments[changeIDIdx].Text)
 
 	commitIDIdx := gr.findNextPrefix(changeIDIdx)
 	if commitIDIdx == -1 {
 		return -1, "", "", false
 	}
-	commitID := gr.Segments[commitIDIdx].Text
+	commitID := strings.TrimSpace(gr.Segments[commitIDIdx].Text)
 
 	isDivergentIdx := gr.findNextPrefix(commitIDIdx)
 	if isDivergentIdx == -1 {
 		return -1, "", "", false
 	}
-	isDivergent, err := strconv.ParseBool(gr.Segments[isDivergentIdx].Text)
+	isDivergent, err := strconv.ParseBool(strings.TrimSpace(gr.Segments[isDivergentIdx].Text))
 	if err != nil {
 		isDivergent = false
 	}

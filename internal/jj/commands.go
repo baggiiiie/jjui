@@ -43,6 +43,7 @@ func Log(revset string, limit int) CommandArgs {
 	}
 	if config.Current.Revisions.Template != "" {
 		prefix := "change_id.shortest(), commit_id.shortest(), divergent"
+		// prefix := "format_short_id(change_id), format_short_id(commit_id), divergent"
 		template := fmt.Sprintf("separate('',  %s, %s)", prefix, config.Current.Revisions.Template)
 		args = append(args, "-T", template)
 	}

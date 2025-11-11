@@ -53,15 +53,15 @@ func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batc
 				row.Commit.ChangeId = changeID
 				row.Commit.CommitId = commitID
 
-				fullChangeID := ""
-				for nextIdx := changeIDIdx + 1; nextIdx < len(rowLine.Segments); nextIdx++ {
-					nextSegment := rowLine.Segments[nextIdx]
-					if strings.TrimSpace(nextSegment.Text) == "" || strings.ContainsAny(nextSegment.Text, "\n\t\r ") {
-						break
-					}
-					fullChangeID += nextSegment.Text
-				}
 				if isDivergent {
+					fullChangeID := ""
+					for nextIdx := changeIDIdx; nextIdx < len(rowLine.Segments); nextIdx++ {
+						nextSegment := strings.TrimSpace(rowLine.Segments[nextIdx].Text)
+						fullChangeID += nextSegment
+						if strings.HasSuffix(nextSegment, "??") {
+							break
+						}
+					}
 					row.Commit.ChangeId = fullChangeID
 					// log.Printf("Change is divergent, update ChangeId to: %s\n", row.Commit.ChangeId)
 				}
