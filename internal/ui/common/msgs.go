@@ -8,10 +8,14 @@ import (
 )
 
 type (
-	CloseViewMsg   struct{}
-	ToggleHelpMsg  struct{}
-	AutoRefreshMsg struct{}
-	RefreshMsg     struct {
+	CloseViewMsg        struct{}
+	RestoreOperationMsg struct {
+		Operation interface{}
+	}
+	StartAceJumpMsg struct{}
+	ToggleHelpMsg   struct{}
+	AutoRefreshMsg  struct{}
+	RefreshMsg      struct {
 		SelectedRevision string
 		KeepSelections   bool
 	}
@@ -70,6 +74,18 @@ const (
 
 func Close() tea.Msg {
 	return CloseViewMsg{}
+}
+
+func RestoreOperation(op interface{}) tea.Cmd {
+	return func() tea.Msg {
+		return RestoreOperationMsg{Operation: op}
+	}
+}
+
+func StartAceJump() tea.Cmd {
+	return func() tea.Msg {
+		return StartAceJumpMsg{}
+	}
 }
 
 func SelectionChanged() tea.Msg {

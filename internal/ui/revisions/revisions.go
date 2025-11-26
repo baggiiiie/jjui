@@ -303,6 +303,22 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 	case common.CloseViewMsg:
 		m.op = operations.NewDefault()
 		return m.updateSelection()
+	case common.RestoreOperationMsg:
+		if op, ok := msg.Operation.(operations.Operation); ok {
+			m.op = op
+			return m.updateSelection()
+		}
+		m.op = operations.NewDefault()
+		return m.updateSelection()
+	case common.StartAceJumpMsg:
+		// Save current operation as parent
+		parentOp := m.op
+		// Create ace jump with parent operation
+		op := ace_jump.NewOperationWithParent(m, func(index int) parser.Row {
+			return m.rows[index]
+		}, m.renderer.FirstRowIndex, m.renderer.LastRowIndex, parentOp)
+		m.op = op
+		return op.Init()
 	case common.QuickSearchMsg:
 		m.quickSearch = string(msg)
 		m.SetCursor(m.search(0))
@@ -468,18 +484,18 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 				m.SetCursor(workingCopyIndex)
 			}
 			return m.updateSelection()
-		case key.Matches(msg, m.keymap.AceJump):
-			op := ace_jump.NewOperation(m, func(index int) parser.Row {
-				return m.rows[index]
-			}, m.renderer.FirstRowIndex, m.renderer.LastRowIndex)
-			m.op = op
-			return op.Init()
 		default:
 			if op, ok := m.op.(common.Focusable); ok && op.IsFocused() {
 				return m.op.Update(msg)
 			}
 
 			switch {
+			case key.Matches(msg, m.keymap.AceJump):
+				op := ace_jump.NewOperation(m, func(index int) parser.Row {
+					return m.rows[index]
+				}, m.renderer.FirstRowIndex, m.renderer.LastRowIndex)
+				m.op = op
+				return op.Init()
 			case key.Matches(msg, m.keymap.ToggleSelect):
 				commit := m.rows[m.cursor].Commit
 				changeId := commit.GetChangeId()

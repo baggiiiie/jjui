@@ -14,8 +14,10 @@ import (
 	"github.com/idursun/jjui/internal/ui/operations"
 )
 
-var _ operations.Operation = (*Operation)(nil)
-var _ common.Focusable = (*Operation)(nil)
+var (
+	_ operations.Operation = (*Operation)(nil)
+	_ common.Focusable     = (*Operation)(nil)
+)
 
 type Operation struct {
 	context     *context.MainContext
@@ -55,6 +57,8 @@ func (s *Operation) View() string {
 
 func (s *Operation) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	switch {
+	case key.Matches(msg, s.keyMap.AceJump):
+		return common.StartAceJump()
 	case key.Matches(msg, s.keyMap.Apply, s.keyMap.ForceApply):
 		ignoreImmutable := key.Matches(msg, s.keyMap.ForceApply)
 		return tea.Batch(common.Close, s.context.RunInteractiveCommand(jj.Squash(s.from, s.current.GetChangeId(), s.files, s.keepEmptied, s.interactive, ignoreImmutable), common.RefreshAndSelect(s.current.GetChangeId())))
@@ -107,6 +111,7 @@ func (s *Operation) ShortHelp() []key.Binding {
 		s.keyMap.Cancel,
 		s.keyMap.Squash.KeepEmptied,
 		s.keyMap.Squash.Interactive,
+		s.keyMap.AceJump,
 	}
 }
 
