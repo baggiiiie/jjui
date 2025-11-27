@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/idursun/jjui/internal/parser"
 	"github.com/idursun/jjui/internal/screen"
+	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/common/list"
 	"github.com/idursun/jjui/internal/ui/operations"
 )
@@ -204,7 +205,12 @@ func (ir itemRenderer) renderSegments(lw *strings.Builder, segmentedLine parser.
 			}
 		}
 
-		fmt.Fprint(lw, style.Render(segment.Text))
+		text := segment.Text
+		if ir.SearchText != "" && strings.Contains(strings.ToLower(text), strings.ToLower(ir.SearchText)) {
+			ir.renderHighlightedText(lw, text, style)
+		} else {
+			fmt.Fprint(lw, style.Render(text))
+		}
 	}
 }
 
@@ -322,4 +328,44 @@ func (ir itemRenderer) Height() int {
 	}
 
 	return h
+}
+
+func (ir itemRenderer) renderHighlightedText(w io.Writer, text string, style lipgloss.Style) {
+	searchTerm := ir.SearchText
+	lowerText := strings.ToLower(text)
+	lowerSearch := strings.ToLower(searchTerm)
+
+	var parts []string
+	var lastIdx int
+
+	// Find all occurrences of search term (case-insensitive)
+	for {
+		idx := strings.Index(lowerText[lastIdx:], lowerSearch)
+		if idx == -1 {
+			if lastIdx < len(text) {
+				parts = append(parts, "normal:"+text[lastIdx:])
+			}
+			break
+		}
+
+		// Add text before match, marked as "normal:"
+		if idx > 0 {
+			parts = append(parts, "normal:"+text[lastIdx:lastIdx+idx])
+		}
+
+		parts = append(parts, "highlight:"+text[lastIdx+idx:lastIdx+idx+len(searchTerm)])
+		lastIdx += idx + len(searchTerm)
+	}
+
+	highlightStyle := common.DefaultPalette.Get("quicksearch matched")
+
+	for _, part := range parts {
+		if after, ok := strings.CutPrefix(part, "highlight:"); ok {
+			content := after
+			fmt.Fprint(w, highlightStyle.Render(content))
+		} else {
+			content := strings.TrimPrefix(part, "normal:")
+			fmt.Fprint(w, style.Render(content))
+		}
+	}
 }

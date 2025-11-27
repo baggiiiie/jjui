@@ -281,7 +281,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 
 func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
-	//case rebase.updateHighlightedIdsMsg:
+	// case rebase.updateHighlightedIdsMsg:
 	//	return m.op.Update(msg)
 	case tea.MouseMsg:
 		switch msg.Action {
@@ -305,7 +305,7 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 		return m.updateSelection()
 	case common.QuickSearchMsg:
 		m.quickSearch = string(msg)
-		m.SetCursor(m.search(0))
+		m.SetCursor(m.search(0, false))
 		m.op = operations.NewDefault()
 		m.renderer.Reset()
 		return nil
@@ -480,6 +480,12 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 			}
 
 			switch {
+			case msg.Type == tea.KeyEsc || msg.Type == tea.KeyEnter:
+				if m.quickSearch != "" {
+					m.quickSearch = ""
+					m.renderer.Reset()
+				}
+				return nil
 			case key.Matches(msg, m.keymap.ToggleSelect):
 				commit := m.rows[m.cursor].Commit
 				changeId := commit.GetChangeId()
@@ -492,8 +498,12 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 				}
 			case key.Matches(msg, m.keymap.Cancel):
 				m.op = operations.NewDefault()
-			case key.Matches(msg, m.keymap.QuickSearchCycle):
-				m.SetCursor(m.search(m.cursor + 1))
+			case key.Matches(msg, m.keymap.QuickSearchNext):
+				m.SetCursor(m.search(m.cursor+1, false))
+				m.renderer.Reset()
+				return nil
+			case key.Matches(msg, m.keymap.QuickSearchPrev):
+				m.SetCursor(m.search(m.cursor-1, true))
 				m.renderer.Reset()
 				return nil
 			case key.Matches(msg, m.keymap.Details.Mode):
@@ -727,18 +737,26 @@ func (m *Model) selectRevision(revision string) int {
 	return idx
 }
 
-func (m *Model) search(startIndex int) int {
+func (m *Model) search(startIndex int, backward bool) int {
 	if m.quickSearch == "" {
+		// TODO: print a message?
 		return m.cursor
 	}
 
 	n := len(m.rows)
-	for i := startIndex; i < n+startIndex; i++ {
-		c := i % n
+	searchLower := strings.ToLower(m.quickSearch)
+	for i := range n {
+		var c int
+		if !backward {
+			c = (startIndex + i) % n
+		} else {
+			// calculate circular index going backwards
+			c = (startIndex - i + n) % n
+		}
 		row := &m.rows[c]
 		for _, line := range row.Lines {
 			for _, segment := range line.Segments {
-				if segment.Text != "" && strings.Contains(segment.Text, m.quickSearch) {
+				if segment.Text != "" && strings.Contains(strings.ToLower(segment.Text), searchLower) {
 					return c
 				}
 			}
