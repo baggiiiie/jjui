@@ -181,6 +181,22 @@ func (row *Row) Last(flag RowLineFlags) *GraphRowLine {
 }
 
 func isChangeIDLike(s string) bool {
+	// Handle comma-separated case: "ky,38"
+	if strings.Contains(s, ",") {
+		parts := strings.SplitN(s, ",", 2)
+		if len(parts) != 2 {
+			return false
+		}
+		// Check if first part (changeID) is all letters
+		for _, r := range parts[0] {
+			if !unicode.IsLetter(r) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Original case: all letters
 	for _, r := range s {
 		if !unicode.IsLetter(r) {
 			return false

@@ -47,7 +47,7 @@ func Log(revset string, limit int, jjTemplate string) CommandArgs {
 	if template == "" {
 		template = jjTemplate
 	}
-	template = fmt.Sprintf("separate('',  %s, %s)", prefix, template)
+	template = fmt.Sprintf("separate(',',  %s, %s)", prefix, template)
 	args = append(args, "-T", template)
 	return args
 }

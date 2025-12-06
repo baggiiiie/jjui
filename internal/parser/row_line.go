@@ -22,7 +22,8 @@ func NewGraphRowLine(segments []*screen.Segment) GraphRowLine {
 
 func (gr *GraphRowLine) findNextPrefix(startIdx int) int {
 	for i := startIdx + 1; i < len(gr.Segments); i++ {
-		if strings.TrimSpace(gr.Segments[i].Text) != "" {
+		if strings.TrimSpace(gr.Segments[i].Text) != "" &&
+			strings.TrimSpace(gr.Segments[i].Text) != "," {
 			return i
 		}
 	}
@@ -41,13 +42,27 @@ func (gr *GraphRowLine) ParseRowPrefixes() (int, string, string, bool) {
 	if changeIDIdx == -1 {
 		return -1, "", "", false
 	}
-	changeID := strings.TrimSpace(gr.Segments[changeIDIdx].Text)
+	changeIDText := strings.TrimSpace(gr.Segments[changeIDIdx].Text)
 
-	commitIDIdx := gr.findNextPrefix(changeIDIdx)
-	if commitIDIdx == -1 {
-		return -1, "", "", false
+	// Check if changeID and commitID are in the same segment (comma-separated)
+	var changeID, commitID string
+	var commitIDIdx int
+
+	if strings.Contains(changeIDText, ",") {
+		// Same color case: "ky,38"
+		parts := strings.SplitN(changeIDText, ",", 2)
+		changeID = strings.TrimSpace(parts[0])
+		commitID = strings.TrimSpace(parts[1])
+		commitIDIdx = changeIDIdx // They're in the same segment
+	} else {
+		// Different color case: separate segments
+		changeID = changeIDText
+		commitIDIdx = gr.findNextPrefix(changeIDIdx)
+		if commitIDIdx == -1 {
+			return -1, "", "", false
+		}
+		commitID = strings.TrimSpace(gr.Segments[commitIDIdx].Text)
 	}
-	commitID := strings.TrimSpace(gr.Segments[commitIDIdx].Text)
 
 	isDivergentIdx := gr.findNextPrefix(commitIDIdx)
 	if isDivergentIdx == -1 {
