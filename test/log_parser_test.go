@@ -164,3 +164,15 @@ func TestParser_DivergentChangeIDShort(t *testing.T) {
 	assert.Equal(t, "43bd", rows[1].Commit.CommitId)
 	assert.Equal(t, true, rows[1].Commit.IsConflicting())
 }
+
+func TestParser_ChangeIDCommitIDSameColor(t *testing.T) {
+	file, _ := os.Open("testdata/change-commit-same-color.log")
+	rows := parser.ParseRows(file)
+	assert.Len(t, rows, 2)
+	assert.Equal(t, "ky", rows[0].Commit.ChangeId)
+	assert.Equal(t, "38", rows[0].Commit.CommitId)
+	assert.Equal(t, false, rows[0].Commit.IsConflicting())
+	assert.Equal(t, "xx", rows[1].Commit.ChangeId)
+	assert.Equal(t, "4b", rows[1].Commit.CommitId)
+	assert.Equal(t, true, rows[1].Commit.IsConflicting())
+}
