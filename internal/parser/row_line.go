@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"log"
 	"strconv"
 	"strings"
 
@@ -31,9 +32,15 @@ func (gr *GraphRowLine) findNextPrefix(startIdx int) int {
 }
 
 func (gr *GraphRowLine) ParseRowPrefixes() (int, string, string, bool) {
+	var w strings.Builder
+	for _, segment := range gr.Segments {
+		w.WriteString(segment.Text + "|")
+	}
+	log.Println(w.String())
 	changeIDIdx := -1
 	for i, segment := range gr.Segments {
 		if isChangeIDLike(segment.Text) {
+			log.Println(segment.Text, "is change id like")
 			changeIDIdx = i
 			break
 		}
