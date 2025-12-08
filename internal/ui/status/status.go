@@ -218,30 +218,51 @@ func (m *Model) loadEditingSuggestions() {
 }
 
 func (m *Model) View() string {
-	commandStatusMark := m.styles.text.Render(" ")
-	if m.status == commandRunning {
+	modeWidth := max(10, len(m.mode)+2)
+	availableWidth := m.Width - modeWidth - 1 // -1 for separator space
+
+	var commandStatusMark string
+	switch m.status {
+	case commandRunning:
 		commandStatusMark = m.styles.text.Render(m.spinner.View())
-	} else if m.status == commandFailed {
+	case commandFailed:
 		commandStatusMark = m.styles.error.Render("✗ ")
-	} else if m.status == commandCompleted {
+	case commandCompleted:
 		commandStatusMark = m.styles.success.Render("✓ ")
-	} else {
-		commandStatusMark = m.helpView(m.keyMap)
-		commandStatusMark = lipgloss.PlaceHorizontal(m.Width, 0, commandStatusMark, lipgloss.WithWhitespaceBackground(m.styles.text.GetBackground()))
+	default:
+		commandStatusMark = m.helpView(m.keyMap, availableWidth)
+		commandStatusMark = lipgloss.PlaceHorizontal(availableWidth, 0, commandStatusMark, lipgloss.WithWhitespaceBackground(m.styles.text.GetBackground()))
 	}
-	modeWith := max(10, len(m.mode)+2)
+
 	ret := m.styles.text.Render(strings.ReplaceAll(m.command, "\n", "⏎"))
 	if m.IsFocused() {
 		commandStatusMark = ""
 		editKeys, editHelp := m.editStatus()
 		if editKeys != nil {
-			editHelp = lipgloss.JoinHorizontal(0, m.helpView(editKeys), editHelp)
+			editHelp = lipgloss.JoinHorizontal(0, m.helpView(editKeys, availableWidth), editHelp)
 		}
 		promptWidth := len(m.input.Prompt) + 2
-		m.input.Width = m.Width - modeWith - promptWidth - lipgloss.Width(editHelp)
+		m.input.Width = m.Width - modeWidth - promptWidth - lipgloss.Width(editHelp)
 		ret = lipgloss.JoinHorizontal(0, m.input.View(), editHelp)
 	}
-	mode := m.styles.title.Width(modeWith).Render("", m.mode)
+
+	// Calculate height of the help/status section
+	helpHeight := lipgloss.Height(commandStatusMark)
+	if helpHeight == 0 {
+		helpHeight = 1
+	}
+
+	// Create mode indicator that spans the same height as help
+	if helpHeight%2 == 0 {
+		m.mode += "\nmode"
+	}
+	mode := m.styles.title.
+		Width(modeWidth).Height(helpHeight).
+		AlignVertical(lipgloss.Center).
+		AlignHorizontal(lipgloss.Center).
+		Render(m.mode)
+
+	// Join mode with the rest of the content
 	ret = lipgloss.JoinHorizontal(lipgloss.Left, mode, m.styles.text.Render(" "), commandStatusMark, ret)
 	height := lipgloss.Height(ret)
 	return lipgloss.Place(m.Width, height, 0, 0, ret, lipgloss.WithWhitespaceBackground(m.styles.text.GetBackground()))
@@ -257,7 +278,7 @@ func (m *Model) SetMode(mode string) {
 	}
 }
 
-func (m *Model) helpView(keyMap help.KeyMap) string {
+func (m *Model) helpView(keyMap help.KeyMap, availableWidth int) string {
 	shortHelp := keyMap.ShortHelp()
 	var entries []string
 	for _, binding := range shortHelp {
@@ -267,8 +288,44 @@ func (m *Model) helpView(keyMap help.KeyMap) string {
 		h := binding.Help()
 		entries = append(entries, m.styles.shortcut.Render(h.Key)+m.styles.dimmed.PaddingLeft(1).Render(h.Desc))
 	}
-	help := strings.Join(entries, m.styles.dimmed.Render(" • "))
-	return help
+
+	separator := m.styles.dimmed.Render(" • ")
+
+	// Build help text and check if it fits in one row
+	var rows []string
+	var currentRow []string
+	currentWidth := 0
+
+	for i, entry := range entries {
+		entryWidth := lipgloss.Width(entry)
+		sepWidth := 0
+		if i > 0 {
+			sepWidth = lipgloss.Width(separator)
+		}
+
+		// Check if adding this entry would exceed available width
+		if currentWidth+sepWidth+entryWidth > availableWidth && len(currentRow) > 0 {
+			// Start a new row
+			rows = append(rows, strings.Join(currentRow, separator))
+			currentRow = []string{entry}
+			currentWidth = entryWidth
+		} else {
+			// Add to current row
+			if len(currentRow) > 0 {
+				currentWidth += sepWidth
+			}
+			currentRow = append(currentRow, entry)
+			currentWidth += entryWidth
+		}
+	}
+
+	// Add the last row
+	if len(currentRow) > 0 {
+		rows = append(rows, strings.Join(currentRow, separator))
+	}
+
+	// Join rows with newlines
+	return strings.Join(rows, "\n")
 }
 
 func New(context *context.MainContext) *Model {
