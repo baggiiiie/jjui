@@ -138,3 +138,11 @@ type Refresh struct {
 }
 
 func (Refresh) isIntent() {}
+
+type GetCurrentFile struct{}
+
+func (GetCurrentFile) isIntent() {}
+
+type GetCheckedFiles struct{}
+
+func (GetCheckedFiles) isIntent() {}

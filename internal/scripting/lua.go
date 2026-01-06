@@ -211,6 +211,32 @@ func registerAPI(L *lua.LState, runner *Runner) {
 		return yieldStep(L, step{cmd: revisions.RevisionsCmd(intents.StartInlineDescribe{}), matcher: matchCloseViewMsg})
 	}))
 
+	detailsTable := L.NewTable()
+	detailsTable.RawSetString("current_file", L.NewFunction(func(L *lua.LState) int {
+		if file, ok := runner.ctx.SelectedItem.(uicontext.SelectedFile); ok {
+			L.Push(lua.LString(file.File))
+			return 1
+		}
+		return 0
+	}))
+	detailsTable.RawSetString("checked_files", L.NewFunction(func(L *lua.LState) int {
+		tbl := L.NewTable()
+		for _, item := range runner.ctx.CheckedItems {
+			if file, ok := item.(uicontext.SelectedFile); ok {
+				tbl.Append(lua.LString(file.File))
+			}
+		}
+		L.Push(tbl)
+		return 1
+	}))
+	detailsTable.RawSetString("is_open", L.NewFunction(func(L *lua.LState) int {
+		// Details view is considered open if the currently selected item is a file
+		// (as opposed to a revision or operation)
+		_, isFile := runner.ctx.SelectedItem.(uicontext.SelectedFile)
+		L.Push(lua.LBool(isFile))
+		return 1
+	}))
+
 	revsetTable := L.NewTable()
 	revsetTable.RawSetString("set", L.NewFunction(func(L *lua.LState) int {
 		value := L.CheckString(1)
@@ -326,6 +352,7 @@ func registerAPI(L *lua.LState, runner *Runner) {
 	root := L.NewTable()
 	root.RawSetString("revisions", revisionsTable)
 	root.RawSetString("revset", revsetTable)
+	root.RawSetString("details", detailsTable)
 	root.RawSetString("jj_async", jjAsyncFn)
 	root.RawSetString("jj_interactive", jjInteractiveFn)
 	root.RawSetString("jj", jjFn)
@@ -339,6 +366,7 @@ func registerAPI(L *lua.LState, runner *Runner) {
 	// but also expose at the top level for convenience
 	L.SetGlobal("revisions", revisionsTable)
 	L.SetGlobal("revset", revsetTable)
+	L.SetGlobal("details", detailsTable)
 	L.SetGlobal("jj_async", jjAsyncFn)
 	L.SetGlobal("jj_interactive", jjInteractiveFn)
 	L.SetGlobal("jj", jjFn)
