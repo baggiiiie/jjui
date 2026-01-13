@@ -23,3 +23,7 @@ error = "red"
 "menu subtitle" = { fg = "230", bold = true }
 "menu matched" = { fg = "magenta", bold = true }
 "menu selected" = { fg = "cyan", bg = "default", bold = true, underline = false }
+"bookmark panel title" = { fg = "magenta", bold = true }
+"bookmark panel border" = "bright black"
+"bookmark panel empty" = "bright black"
+"bookmark panel text" = "white"

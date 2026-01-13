@@ -133,6 +133,9 @@ func Convert(m KeyMappings[keys]) KeyMappings[key.Binding] {
 			Accept: key.NewBinding(key.WithKeys(m.FileSearch.Accept...), key.WithHelp(JoinKeys(m.FileSearch.Accept), "file revset")),
 			Edit:   key.NewBinding(key.WithKeys(m.FileSearch.Edit...), key.WithHelp(JoinKeys(m.FileSearch.Edit), "edit file")),
 		},
+		BookmarkPanel: bookmarkPanelKeys[key.Binding]{
+			Toggle: key.NewBinding(key.WithKeys(m.BookmarkPanel.Toggle...), key.WithHelp(JoinKeys(m.BookmarkPanel.Toggle), "bookmark panel")),
+		},
 	}
 }
 
@@ -205,6 +208,7 @@ type KeyMappings[T any] struct {
 	Evolog            evologModeKeys[T]         `toml:"evolog"`
 	Preview           previewModeKeys[T]        `toml:"preview"`
 	Bookmark          bookmarkModeKeys[T]       `toml:"bookmark"`
+	BookmarkPanel     bookmarkPanelKeys[T]      `toml:"bookmark_panel"`
 	InlineDescribe    inlineDescribeModeKeys[T] `toml:"inline_describe"`
 	Git               gitModeKeys[T]            `toml:"git"`
 	OpLog             opLogModeKeys[T]          `toml:"oplog"`
@@ -309,4 +313,8 @@ type fileSearchKeys[T any] struct {
 	Down   T `toml:"down"`
 	Accept T `toml:"accept"`
 	Edit   T `toml:"edit"`
+}
+
+type bookmarkPanelKeys[T any] struct {
+	Toggle T `toml:"toggle"`
 }

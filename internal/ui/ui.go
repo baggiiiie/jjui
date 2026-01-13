@@ -19,6 +19,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
+	"github.com/idursun/jjui/internal/ui/bookmark_panel"
 	"github.com/idursun/jjui/internal/ui/bookmarks"
 	"github.com/idursun/jjui/internal/ui/choose"
 	"github.com/idursun/jjui/internal/ui/common"
@@ -48,22 +49,23 @@ type SizableModel interface {
 
 type Model struct {
 	*common.ViewNode
-	revisions       *revisions.Model
-	oplog           *oplog.Model
-	revsetModel     *revset.Model
-	previewModel    *preview.Model
-	diff            *diff.Model
-	leader          *leader.Model
-	flash           *flash.Model
-	state           common.State
-	status          *status.Model
-	password        *password.Model
-	context         *context.MainContext
-	scriptRunner    *scripting.Runner
-	keyMap          config.KeyMappings[key.Binding]
-	stacked         SizableModel
-	dragTarget      common.Draggable
-	sequenceOverlay *customcommands.SequenceOverlay
+	revisions         *revisions.Model
+	oplog             *oplog.Model
+	revsetModel       *revset.Model
+	previewModel      *preview.Model
+	bookmarkPanelModel *bookmark_panel.Model
+	diff              *diff.Model
+	leader            *leader.Model
+	flash             *flash.Model
+	state             common.State
+	status            *status.Model
+	password          *password.Model
+	context           *context.MainContext
+	scriptRunner      *scripting.Runner
+	keyMap            config.KeyMappings[key.Binding]
+	stacked           SizableModel
+	dragTarget        common.Draggable
+	sequenceOverlay   *customcommands.SequenceOverlay
 }
 
 type triggerAutoRefreshMsg struct{}
@@ -105,6 +107,10 @@ func (m *Model) handleFocusInputMessage(msg tea.Msg) (tea.Cmd, bool) {
 
 		if m.diff != nil {
 			return m.diff.Update(msg), true
+		}
+
+		if m.bookmarkPanelModel.IsFocused() {
+			return m.bookmarkPanelModel.Update(msg), true
 		}
 
 		if m.revsetModel.Editing {
@@ -263,6 +269,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		case key.Matches(msg, m.keyMap.Help):
 			cmds = append(cmds, common.ToggleHelp)
 			return tea.Batch(cmds...)
+		case key.Matches(msg, m.keyMap.BookmarkPanel.Toggle) && m.revisions.InNormalMode():
+			m.bookmarkPanelModel.ToggleVisible()
+			if m.bookmarkPanelModel.Visible() {
+				cmds = append(cmds, m.bookmarkPanelModel.Init())
+			}
+			return tea.Batch(cmds...)
 		case key.Matches(msg, m.keyMap.Preview.Mode, m.keyMap.Preview.ToggleBottom):
 			if key.Matches(msg, m.keyMap.Preview.ToggleBottom) {
 				previewPos := m.previewModel.AtBottom()
@@ -383,6 +395,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		return m.stacked.Init()
 	case input.SelectedMsg, input.CancelledMsg:
 		m.stacked = nil
+	case bookmark_panel.StartMoveModeMsg:
+		// User pressed 'm' in bookmark panel - start bookmark move operation
+		return m.revisions.Update(msg)
+	case bookmark_panel.EndMoveModeMsg:
+		// Move operation ended, restore focus to bookmark panel
+		return m.bookmarkPanelModel.Update(msg)
 	case common.ShowPreview:
 		m.previewModel.SetVisible(bool(msg))
 		cmds = append(cmds, common.SelectionChanged(m.context.SelectedItem))
@@ -445,6 +463,10 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		cmds = append(cmds, m.previewModel.Update(msg))
 	}
 
+	if m.bookmarkPanelModel.Visible() {
+		cmds = append(cmds, m.bookmarkPanelModel.Update(msg))
+	}
+
 	return tea.Batch(cmds...)
 }
 
@@ -456,6 +478,9 @@ func (m *Model) updateStatus() {
 	case m.oplog != nil:
 		m.status.SetMode("oplog")
 		m.status.SetHelp(m.oplog)
+	case m.bookmarkPanelModel.IsFocused():
+		m.status.SetMode("bookmarks")
+		m.status.SetHelp(m.bookmarkPanelModel)
 	case m.stacked != nil:
 		if s, ok := m.stacked.(help.KeyMap); ok {
 			m.status.SetHelp(s)
@@ -502,7 +527,14 @@ func (m *Model) View() string {
 	centerArea, bottomArea = layout.SplitVertical(centerArea, layout.Fixed(centerArea.Dy()-footerHeight))
 	cellbuf.SetContentRect(screenBuf, footer, bottomArea)
 
-	if m.previewModel.Visible() {
+	// Handle bookmark panel - it takes priority over preview if both are visible
+	var bookmarkPanelArea cellbuf.Rectangle
+	if m.bookmarkPanelModel.Visible() {
+		// Bookmark panel is always on the right side
+		centerArea, bookmarkPanelArea = layout.SplitHorizontal(centerArea, layout.Percent(100-m.bookmarkPanelModel.WindowPercentage()))
+		m.bookmarkPanelModel.SetFrame(bookmarkPanelArea)
+	} else if m.previewModel.Visible() {
+		// Only show preview if bookmark panel is not visible
 		m.UpdatePreviewPosition()
 		if m.previewModel.AtBottom() {
 			centerArea, previewArea = layout.SplitVertical(centerArea, layout.Percent(100-m.previewModel.WindowPercentage()))
@@ -522,7 +554,11 @@ func (m *Model) View() string {
 	}
 
 	cellbuf.SetContentRect(screenBuf, leftView, centerArea)
-	if m.previewModel.Visible() {
+	if m.bookmarkPanelModel.Visible() {
+		// Update list dimensions
+		m.bookmarkPanelModel.List.SetSize(bookmarkPanelArea.Dx()-2, bookmarkPanelArea.Dy()-6)
+		cellbuf.SetContentRect(screenBuf, m.bookmarkPanelModel.View(), bookmarkPanelArea)
+	} else if m.previewModel.Visible() {
 		cellbuf.SetContentRect(screenBuf, m.previewModel.View(), previewArea)
 	}
 
@@ -655,19 +691,23 @@ func NewUI(c *context.MainContext) *Model {
 	previewModel := preview.New(c)
 	previewModel.Parent = frame
 
+	bookmarkPanelModel := bookmark_panel.NewModel(c)
+	bookmarkPanelModel.Parent = frame
+
 	revsetModel := revset.New(c)
 	revsetModel.Parent = frame
 
 	return &Model{
-		ViewNode:     frame,
-		context:      c,
-		keyMap:       config.Current.GetKeyMap(),
-		state:        common.Loading,
-		revisions:    revisionsModel,
-		previewModel: previewModel,
-		status:       statusModel,
-		revsetModel:  revsetModel,
-		flash:        flashView,
+		ViewNode:           frame,
+		context:            c,
+		keyMap:             config.Current.GetKeyMap(),
+		state:              common.Loading,
+		revisions:          revisionsModel,
+		previewModel:       previewModel,
+		bookmarkPanelModel: bookmarkPanelModel,
+		status:             statusModel,
+		revsetModel:        revsetModel,
+		flash:              flashView,
 	}
 }
 

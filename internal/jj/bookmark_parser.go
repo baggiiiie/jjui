@@ -5,8 +5,9 @@ import (
 )
 
 const (
-	moveBookmarkTemplate = `separate(";", name, if(remote, "remote", "."), tracked, conflict, normal_target.contained_in("%s"), normal_target.commit_id().shortest(1)) ++ "\n"`
-	allBookmarkTemplate  = `separate(";", name, if(remote, remote, "."), tracked, conflict, 'false', normal_target.commit_id().shortest(1)) ++ "\n"`
+	moveBookmarkTemplate   = `separate(";", name, if(remote, "remote", "."), tracked, conflict, normal_target.contained_in("%s"), normal_target.commit_id().shortest(1)) ++ "\n"`
+	allBookmarkTemplate    = `separate(";", name, if(remote, remote, "."), tracked, conflict, 'false', normal_target.commit_id().shortest(1)) ++ "\n"`
+	simpleBookmarkTemplate = `name ++ " " ++ normal_target.change_id().shortest(6) ++ "\n"`
 )
 
 type BookmarkRemote struct {
@@ -30,6 +31,39 @@ func (b Bookmark) IsDeletable() bool {
 
 func (b Bookmark) IsTrackable() bool {
 	return b.Local != nil && len(b.Remotes) == 0
+}
+
+// ParseSimpleBookmarkListOutput parses the simple "name change_id" format
+func ParseSimpleBookmarkListOutput(output string) []Bookmark {
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	var bookmarks []Bookmark
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Split by whitespace (one or more spaces)
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+
+		name := parts[0]
+		changeId := parts[1]
+
+		bookmarks = append(bookmarks, Bookmark{
+			Name:     name,
+			CommitId: changeId,
+			Local: &BookmarkRemote{
+				Remote:   ".",
+				CommitId: changeId,
+			},
+		})
+	}
+
+	return bookmarks
 }
 
 func ParseBookmarkListOutput(output string) []Bookmark {
