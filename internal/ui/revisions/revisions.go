@@ -29,12 +29,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
+	"github.com/idursun/jjui/internal/ui/bookmark_panel"
 	"github.com/idursun/jjui/internal/ui/common"
 	appContext "github.com/idursun/jjui/internal/ui/context"
 	"github.com/idursun/jjui/internal/ui/graph"
 	"github.com/idursun/jjui/internal/ui/operations"
 	"github.com/idursun/jjui/internal/ui/operations/abandon"
 	"github.com/idursun/jjui/internal/ui/operations/bookmark"
+	"github.com/idursun/jjui/internal/ui/operations/bookmark_move"
 	"github.com/idursun/jjui/internal/ui/operations/details"
 	"github.com/idursun/jjui/internal/ui/operations/evolog"
 	"github.com/idursun/jjui/internal/ui/operations/rebase"
@@ -250,6 +252,10 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 		}
 		return m.Scroll(msg.Delta)
 
+	case bookmark_panel.StartMoveModeMsg:
+		// Start bookmark move operation
+		m.op = bookmark_move.NewOperation(m.context, msg.Bookmark.Name)
+		return m.updateSelection()
 	case common.CloseViewMsg:
 		m.op = operations.NewDefault()
 		return m.updateSelection()

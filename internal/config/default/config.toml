@@ -96,6 +96,8 @@ limit = 0
     forget = ["f"]
     track = ["t"]
     untrack = ["u"]
+  [keys.bookmark_panel]
+    toggle = ["X"]
   [keys.inline_describe]
     mode = ["enter"]
     accept = ["alt+enter", "ctrl+s"]

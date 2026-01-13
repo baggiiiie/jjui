@@ -251,6 +251,10 @@ func BookmarkListAll() CommandArgs {
 	return []string{"bookmark", "list", "-a", "--template", allBookmarkTemplate, "--color", "never", "--ignore-working-copy"}
 }
 
+func BookmarkListSimple() CommandArgs {
+	return []string{"bookmark", "list", "-T", simpleBookmarkTemplate, "--color", "never", "--ignore-working-copy"}
+}
+
 func GitFetch(flags ...string) CommandArgs {
 	args := []string{"git", "fetch"}
 	if flags != nil {

@@ -19,6 +19,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
+	"github.com/idursun/jjui/internal/ui/bookmark_panel"
 	"github.com/idursun/jjui/internal/ui/bookmarks"
 	"github.com/idursun/jjui/internal/ui/choose"
 	"github.com/idursun/jjui/internal/ui/common"
@@ -40,27 +41,28 @@ import (
 )
 
 type Model struct {
-	revisions       *revisions.Model
-	oplog           *oplog.Model
-	revsetModel     *revset.Model
-	previewModel    *preview.Model
-	diff            *diff.Model
-	leader          *leader.Model
-	flash           *flash.Model
-	state           common.State
-	status          *status.Model
-	password        *password.Model
-	context         *context.MainContext
-	scriptRunner    *scripting.Runner
-	keyMap          config.KeyMappings[key.Binding]
-	stacked         common.ImmediateModel
-	sequenceOverlay *customcommands.SequenceOverlay
-	displayContext  *render.DisplayContext
-	width           int
-	height          int
-	revisionsSplit  *split
-	activeSplit     *split
-	splitActive     bool
+	revisions          *revisions.Model
+	oplog              *oplog.Model
+	revsetModel        *revset.Model
+	previewModel       *preview.Model
+	bookmarkPanelModel *bookmark_panel.Model
+	diff               *diff.Model
+	leader             *leader.Model
+	flash              *flash.Model
+	state              common.State
+	status             *status.Model
+	password           *password.Model
+	context            *context.MainContext
+	scriptRunner       *scripting.Runner
+	keyMap             config.KeyMappings[key.Binding]
+	stacked            common.ImmediateModel
+	sequenceOverlay    *customcommands.SequenceOverlay
+	displayContext     *render.DisplayContext
+	width              int
+	height             int
+	revisionsSplit     *split
+	activeSplit        *split
+	splitActive        bool
 }
 
 type triggerAutoRefreshMsg struct{}
@@ -102,6 +104,10 @@ func (m *Model) handleFocusInputMessage(msg tea.Msg) (tea.Cmd, bool) {
 
 		if m.diff != nil {
 			return m.diff.Update(msg), true
+		}
+
+		if m.bookmarkPanelModel.IsFocused() {
+			return m.bookmarkPanelModel.Update(msg), true
 		}
 
 		if m.revsetModel.Editing {
@@ -231,6 +237,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			return m.handleIntent(intents.OpenBookmarks{})
 		case key.Matches(msg, m.keyMap.Help):
 			return m.handleIntent(intents.HelpToggle{})
+		case key.Matches(msg, m.keyMap.BookmarkPanel.Toggle) && m.revisions.InNormalMode():
+			m.bookmarkPanelModel.ToggleVisible()
+			if m.bookmarkPanelModel.Visible() {
+				cmds = append(cmds, m.bookmarkPanelModel.Init())
+			}
+			return tea.Batch(cmds...)
 		case key.Matches(msg, m.keyMap.Preview.Mode):
 			return m.handleIntent(intents.PreviewToggle{})
 		case key.Matches(msg, m.keyMap.Preview.ToggleBottom):
@@ -343,6 +355,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		return m.stacked.Init()
 	case input.SelectedMsg, input.CancelledMsg:
 		m.stacked = nil
+	case bookmark_panel.StartMoveModeMsg:
+		// User pressed 'm' in bookmark panel - start bookmark move operation
+		return m.revisions.Update(msg)
+	case bookmark_panel.EndMoveModeMsg:
+		// Move operation ended, restore focus to bookmark panel
+		return m.bookmarkPanelModel.Update(msg)
 	case common.ShowPreview:
 		m.previewModel.SetVisible(bool(msg))
 		cmds = append(cmds, common.SelectionChanged(m.context.SelectedItem))
@@ -413,6 +431,10 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		cmds = append(cmds, m.previewModel.Update(msg))
 	}
 
+	if m.bookmarkPanelModel.Visible() {
+		cmds = append(cmds, m.bookmarkPanelModel.Update(msg))
+	}
+
 	return tea.Batch(cmds...)
 }
 
@@ -424,6 +446,9 @@ func (m *Model) updateStatus() {
 	case m.oplog != nil:
 		m.status.SetMode("oplog")
 		m.status.SetHelp(m.oplog)
+	case m.bookmarkPanelModel.IsFocused():
+		m.status.SetMode("bookmarks")
+		m.status.SetHelp(m.bookmarkPanelModel)
 	case m.stacked != nil:
 		if s, ok := m.stacked.(help.KeyMap); ok {
 			m.status.SetHelp(s)
@@ -505,7 +530,31 @@ func (m *Model) renderOpLogLayout(box layout.Box) {
 }
 
 func (m *Model) renderRevisionsLayout(box layout.Box) {
-	rows := box.V(layout.Fixed(1), layout.Fill(1), layout.Fixed(1))
+	var contentBox layout.Box
+
+	// If bookmark panel is visible, allocate space for it
+	if m.bookmarkPanelModel.Visible() {
+		bookmarkWidth := int(float64(box.R.Dx()) * m.bookmarkPanelModel.WindowPercentage() / 100)
+		boxes := box.H(layout.Fill(1), layout.Fixed(bookmarkWidth))
+		if len(boxes) >= 2 {
+			contentBox = boxes[0]
+			bookmarkBox := boxes[1]
+
+			// Set dimensions for the bookmark panel
+			m.bookmarkPanelModel.SetDimensions(bookmarkBox.R.Dx(), bookmarkBox.R.Dy())
+			m.bookmarkPanelModel.List.SetSize(bookmarkBox.R.Dx()-2, bookmarkBox.R.Dy()-6)
+
+			// Render bookmark panel using its View() method (legacy)
+			bookmarkView := m.bookmarkPanelModel.View()
+			m.displayContext.AddDraw(bookmarkBox.R, bookmarkView, 0)
+		} else {
+			contentBox = box
+		}
+	} else {
+		contentBox = box
+	}
+
+	rows := contentBox.V(layout.Fixed(1), layout.Fill(1), layout.Fixed(1))
 	if len(rows) < 3 {
 		return
 	}
@@ -761,17 +810,19 @@ func NewUI(c *context.MainContext) *Model {
 	statusModel := status.New(c)
 	flashView := flash.New(c)
 	previewModel := preview.New(c)
+	bookmarkPanelModel := bookmark_panel.NewModel(c)
 	revsetModel := revset.New(c)
 
 	ui := &Model{
-		context:      c,
-		keyMap:       config.Current.GetKeyMap(),
-		state:        common.Loading,
-		revisions:    revisionsModel,
-		previewModel: previewModel,
-		status:       statusModel,
-		revsetModel:  revsetModel,
-		flash:        flashView,
+		context:            c,
+		keyMap:             config.Current.GetKeyMap(),
+		state:              common.Loading,
+		revisions:          revisionsModel,
+		previewModel:       previewModel,
+		bookmarkPanelModel: bookmarkPanelModel,
+		status:             statusModel,
+		revsetModel:        revsetModel,
+		flash:              flashView,
 	}
 	ui.initSplit()
 	return ui
