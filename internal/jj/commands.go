@@ -184,6 +184,10 @@ func BookmarkMove(revision string, bookmark string, extraFlags ...string) Comman
 	return args
 }
 
+func BookmarkCreate(revision string, name string) CommandArgs {
+	return []string{"bookmark", "create", "-r", revision, name}
+}
+
 func BookmarkDelete(name string) CommandArgs {
 	return []string{"bookmark", "delete", name}
 }
@@ -252,7 +256,7 @@ func BookmarkListAll() CommandArgs {
 }
 
 func BookmarkListSimple() CommandArgs {
-	return []string{"bookmark", "list", "-T", simpleBookmarkTemplate, "--color", "never", "--ignore-working-copy"}
+	return []string{"bookmark", "list", "-T", simpleBookmarkTemplate, "--color", "always", "--ignore-working-copy"}
 }
 
 func GitFetch(flags ...string) CommandArgs {

@@ -361,6 +361,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	case bookmark_panel.EndMoveModeMsg:
 		// Move operation ended, restore focus to bookmark panel
 		return m.bookmarkPanelModel.Update(msg)
+	case bookmark_panel.StartCreateModeMsg:
+		// User pressed 'c' in bookmark panel - start bookmark create operation
+		return m.revisions.Update(msg)
+	case bookmark_panel.EndCreateModeMsg:
+		// Create operation ended, restore focus to bookmark panel
+		return m.bookmarkPanelModel.Update(msg)
 	case common.ShowPreview:
 		m.previewModel.SetVisible(bool(msg))
 		cmds = append(cmds, common.SelectionChanged(m.context.SelectedItem))
@@ -466,6 +472,14 @@ func (m *Model) UpdatePreviewPosition() {
 	if m.previewModel.AutoPosition() {
 		atBottom := m.height >= m.width/2
 		m.previewModel.SetPosition(true, atBottom)
+	}
+}
+
+func (m *Model) UpdateBookmarkPanelPosition() {
+	if m.bookmarkPanelModel.AutoPosition() {
+		// Same logic as preview: bottom when tall, right side when wide
+		atBottom := m.height >= m.width/2
+		m.bookmarkPanelModel.SetPosition(true, atBottom)
 	}
 }
 

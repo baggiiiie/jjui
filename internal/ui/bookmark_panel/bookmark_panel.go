@@ -20,25 +20,27 @@ var (
 	_ help.KeyMap      = (*Model)(nil)
 )
 
+const handleSize = 3
+
 type styles struct {
-	title      lipgloss.Style
-	border     lipgloss.Style
-	empty      lipgloss.Style
-	text       lipgloss.Style
-	listText   lipgloss.Style
-	selected   lipgloss.Style
-	dimmed     lipgloss.Style
+	title    lipgloss.Style
+	border   lipgloss.Style
+	empty    lipgloss.Style
+	text     lipgloss.Style
+	listText lipgloss.Style
+	selected lipgloss.Style
+	dimmed   lipgloss.Style
 }
 
 func createStyles() styles {
 	return styles{
-		title:      common.DefaultPalette.Get("bookmark panel title"),
-		border:     common.DefaultPalette.GetBorder("bookmark panel border", lipgloss.NormalBorder()),
-		empty:      common.DefaultPalette.Get("bookmark panel empty"),
-		text:       common.DefaultPalette.Get("bookmark panel text"),
-		listText:   common.DefaultPalette.Get("menu text"),
-		selected:   common.DefaultPalette.Get("selected"),
-		dimmed:     common.DefaultPalette.Get("menu dimmed"),
+		title:    common.DefaultPalette.Get("bookmark panel title"),
+		border:   common.DefaultPalette.GetBorder("bookmark panel border", lipgloss.NormalBorder()),
+		empty:    common.DefaultPalette.Get("bookmark panel empty"),
+		text:     common.DefaultPalette.Get("bookmark panel text"),
+		listText: common.DefaultPalette.Get("menu text"),
+		selected: common.DefaultPalette.Get("selected"),
+		dimmed:   common.DefaultPalette.Get("menu dimmed"),
 	}
 }
 
@@ -116,7 +118,7 @@ func (d bookmarkDelegate) Height() int {
 }
 
 func (d bookmarkDelegate) Spacing() int {
-	return 0
+	return 1
 }
 
 func (d bookmarkDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
@@ -128,16 +130,20 @@ type loadBookmarksMsg struct {
 }
 
 type Model struct {
-	context        *context.MainContext
-	List           list.Model // Exported for sizing
-	bookmarks      []jj.Bookmark
-	visible        bool
-	focused        bool
-	keymap         config.KeyMappings[key.Binding]
-	widthPercent   float64
-	moveMode       bool
-	moveModeTarget *jj.Commit
-	styles         styles
+	context          *context.MainContext
+	List             list.Model // Exported for sizing
+	bookmarks        []jj.Bookmark
+	visible          bool
+	focused          bool
+	keymap           config.KeyMappings[key.Binding]
+	windowPercent    float64
+	autoPosition     bool
+	atBottom         bool
+	moveMode         bool
+	moveModeTarget   *jj.Commit
+	createMode       bool
+	createModeTarget *jj.Commit
+	styles           styles
 	// Dimensions for rendering (set by ui.go)
 	width  int
 	height int
@@ -178,7 +184,16 @@ func (m *Model) ToggleVisible() {
 }
 
 func (m *Model) WindowPercentage() float64 {
-	return m.widthPercent
+	return m.windowPercent
+}
+
+func (m *Model) SetWindowPercentage(percentage float64) {
+	m.windowPercent = percentage
+	if m.windowPercent < 10 {
+		m.windowPercent = 10
+	} else if m.windowPercent > 95 {
+		m.windowPercent = 95
+	}
 }
 
 func (m *Model) SetDimensions(width, height int) {
@@ -187,11 +202,24 @@ func (m *Model) SetDimensions(width, height int) {
 }
 
 func (m *Model) Expand() {
-	m.widthPercent = min(95, m.widthPercent+5)
+	m.SetWindowPercentage(m.windowPercent + 5)
 }
 
 func (m *Model) Shrink() {
-	m.widthPercent = max(20, m.widthPercent-5)
+	m.SetWindowPercentage(m.windowPercent - 5)
+}
+
+func (m *Model) AutoPosition() bool {
+	return m.autoPosition
+}
+
+func (m *Model) AtBottom() bool {
+	return m.atBottom
+}
+
+func (m *Model) SetPosition(autoPos bool, atBottom bool) {
+	m.autoPosition = autoPos
+	m.atBottom = atBottom
 }
 
 func (m *Model) IsMoveMode() bool {
@@ -211,6 +239,25 @@ func (m *Model) ExitMoveMode() {
 
 func (m *Model) GetMoveModeTarget() *jj.Commit {
 	return m.moveModeTarget
+}
+
+func (m *Model) IsCreateMode() bool {
+	return m.createMode
+}
+
+func (m *Model) SetCreateMode(commit *jj.Commit) {
+	m.createMode = true
+	m.createModeTarget = commit
+	m.focused = false
+}
+
+func (m *Model) ExitCreateMode() {
+	m.createMode = false
+	m.createModeTarget = nil
+}
+
+func (m *Model) GetCreateModeTarget() *jj.Commit {
+	return m.createModeTarget
 }
 
 func (m *Model) SelectedBookmark() *jj.Bookmark {
@@ -239,11 +286,25 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		m.moveMode = false
 		m.moveModeTarget = nil
 		m.focused = true
-		return nil
+		return m.loadBookmarks
+
+	case EndCreateModeMsg:
+		// Create operation ended, restore focus to bookmark panel
+		m.createMode = false
+		m.createModeTarget = nil
+		m.focused = true
+		return m.loadBookmarks
 
 	case tea.KeyMsg:
 		if !m.focused {
 			return nil
+		}
+
+		// If user is typing in the filter, let the list handle it
+		if m.List.SettingFilter() {
+			var cmd tea.Cmd
+			m.List, cmd = m.List.Update(msg)
+			return cmd
 		}
 
 		switch {
@@ -254,7 +315,11 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 				m.moveModeTarget = nil
 				return nil
 			}
-			// Otherwise close the panel
+			// If filter is active, clear it; otherwise close the panel
+			if m.List.FilterState() != list.Unfiltered {
+				m.List.ResetFilter()
+				return nil
+			}
 			m.ToggleVisible()
 			return nil
 		case key.Matches(msg, m.keymap.Apply):
@@ -276,9 +341,11 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			}
 			return nil
 		case msg.String() == "c":
-			// Create bookmark - show input
+			// Start create mode - keep panel open but unfocus it
+			m.createMode = true
+			m.focused = false
 			return func() tea.Msg {
-				return createBookmarkMsg{}
+				return StartCreateModeMsg{}
 			}
 		case msg.String() == "d":
 			// Delete bookmark
@@ -321,13 +388,16 @@ func (m *Model) View() string {
 		return ""
 	}
 
-	// Apply left border only
+	// Apply border on the edge facing the main content
+	// If panel is at bottom, border is on top; if on the right, border is on the left
 	borderStyle := m.styles.border.
-		Border(lipgloss.NormalBorder(), false, false, false, true)
+		Border(lipgloss.NormalBorder(), m.atBottom, false, false, !m.atBottom)
 
 	title := fmt.Sprintf("Bookmarks (%d)", len(m.bookmarks))
 	if m.moveMode && m.moveModeTarget != nil {
 		title = fmt.Sprintf("Move bookmark to: %s", m.moveModeTarget.GetChangeId())
+	} else if m.createMode {
+		title = "Create bookmark: select revision"
 	}
 
 	header := m.styles.title.Render(title)
@@ -356,15 +426,34 @@ func (m *Model) ShortHelp() []key.Binding {
 			key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel move")),
 		}
 	}
-	return []key.Binding{
+	if m.createMode {
+		return []key.Binding{
+			key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select revision")),
+			key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel create")),
+		}
+	}
+	if m.List.SettingFilter() {
+		return []key.Binding{
+			key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "apply filter")),
+			key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel")),
+		}
+	}
+	bindings := []key.Binding{
 		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "view revset")),
+		key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "create")),
 		key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "move")),
 		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete")),
 		key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "forget")),
 		key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "track")),
 		key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "untrack")),
-		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "close")),
 	}
+	if m.List.IsFiltered() {
+		bindings = append(bindings, key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear filter")))
+	} else {
+		bindings = append(bindings, m.List.KeyMap.Filter)
+		bindings = append(bindings, key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "close")))
+	}
+	return bindings
 }
 
 func (m *Model) FullHelp() [][]key.Binding {
@@ -377,7 +466,9 @@ type StartMoveModeMsg struct {
 
 type EndMoveModeMsg struct{}
 
-type createBookmarkMsg struct{}
+type StartCreateModeMsg struct{}
+
+type EndCreateModeMsg struct{}
 
 func NewModel(c *context.MainContext) *Model {
 	keymap := config.Current.GetKeyMap()
@@ -388,18 +479,25 @@ func NewModel(c *context.MainContext) *Model {
 	}
 
 	l := list.New([]list.Item{}, delegate, 0, 0)
-	l.Title = ""
+	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
+	l.SetShowFilter(false)
+	l.SetShowPagination(false)
 	l.SetFilteringEnabled(true)
+	l.DisableQuitKeybindings()
+	// Hide filter input cursor when not actively filtering
+	l.FilterInput.Cursor.SetMode(0) // CursorHide mode
 
 	return &Model{
-		context:      c,
-		List:         l,
-		visible:      false,
-		focused:      false,
-		keymap:       keymap,
-		widthPercent: 50.0,
-		styles:       styles,
+		context:       c,
+		List:          l,
+		visible:       false,
+		focused:       false,
+		keymap:        keymap,
+		windowPercent: 50.0,
+		autoPosition:  true,
+		atBottom:      false, // Default to right side
+		styles:        styles,
 	}
 }

@@ -1,13 +1,31 @@
 package jj
 
 import (
+	"regexp"
 	"strings"
 )
+
+// ansiRegex matches ANSI escape sequences
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// stripAnsi removes ANSI escape codes from a string
+func stripAnsi(s string) string {
+	return ansiRegex.ReplaceAllString(s, "")
+}
 
 const (
 	moveBookmarkTemplate   = `separate(";", name, if(remote, "remote", "."), tracked, conflict, normal_target.contained_in("%s"), normal_target.commit_id().shortest(1)) ++ "\n"`
 	allBookmarkTemplate    = `separate(";", name, if(remote, remote, "."), tracked, conflict, 'false', normal_target.commit_id().shortest(1)) ++ "\n"`
-	simpleBookmarkTemplate = `name ++ " " ++ normal_target.change_id().shortest(6) ++ "\n"`
+	simpleBookmarkTemplate = `
+  if(conflict,
+    label("bookmark", name) ++ " (conflict)",
+    label("bookmark", name)
+  ) ++ " " ++
+  coalesce(
+    normal_target.change_id().shortest(6),
+    "(deleted)"
+  ) ++ "\n"
+`
 )
 
 type BookmarkRemote struct {
@@ -33,7 +51,7 @@ func (b Bookmark) IsTrackable() bool {
 	return b.Local != nil && len(b.Remotes) == 0
 }
 
-// ParseSimpleBookmarkListOutput parses the simple "name change_id" format
+// ParseSimpleBookmarkListOutput parses the "name [conflict] change_id" format
 func ParseSimpleBookmarkListOutput(output string) []Bookmark {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	var bookmarks []Bookmark
@@ -50,11 +68,26 @@ func ParseSimpleBookmarkListOutput(output string) []Bookmark {
 			continue
 		}
 
-		name := parts[0]
-		changeId := parts[1]
+		// Parse name and conflict status (strip ANSI codes from name)
+		name := stripAnsi(parts[0])
+		conflict := false
+		changeIdIdx := 1
+
+		// Check if second part is "(conflict)"
+		if len(parts) > 2 && parts[1] == "(conflict)" {
+			conflict = true
+			changeIdIdx = 2
+		}
+
+		if changeIdIdx >= len(parts) {
+			continue
+		}
+
+		changeId := parts[changeIdIdx]
 
 		bookmarks = append(bookmarks, Bookmark{
 			Name:     name,
+			Conflict: conflict,
 			CommitId: changeId,
 			Local: &BookmarkRemote{
 				Remote:   ".",

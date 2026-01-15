@@ -29,8 +29,8 @@ func (o *Operation) Init() tea.Cmd {
 }
 
 func (o *Operation) IsFocused() bool {
-	// Not focused - user is selecting target in revisions
-	return false
+	// Focused to receive key events (esc/enter) for move mode
+	return true
 }
 
 func (o *Operation) Update(msg tea.Msg) tea.Cmd {
