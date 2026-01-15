@@ -35,6 +35,7 @@ import (
 	"github.com/idursun/jjui/internal/ui/operations"
 	"github.com/idursun/jjui/internal/ui/operations/abandon"
 	"github.com/idursun/jjui/internal/ui/operations/bookmark"
+	"github.com/idursun/jjui/internal/ui/operations/bookmark_create"
 	"github.com/idursun/jjui/internal/ui/operations/bookmark_move"
 	"github.com/idursun/jjui/internal/ui/operations/details"
 	"github.com/idursun/jjui/internal/ui/operations/evolog"
@@ -320,6 +321,10 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 	case bookmark_panel.StartMoveModeMsg:
 		// Start bookmark move operation
 		m.op = bookmark_move.NewOperation(m.context, msg.Bookmark.Name)
+		return m.updateSelection()
+	case bookmark_panel.StartCreateModeMsg:
+		// Start bookmark create operation
+		m.op = bookmark_create.NewOperation(m.context)
 		return m.updateSelection()
 	case common.CloseViewMsg:
 		m.op = operations.NewDefault()

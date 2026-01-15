@@ -49,23 +49,23 @@ type SizableModel interface {
 
 type Model struct {
 	*common.ViewNode
-	revisions         *revisions.Model
-	oplog             *oplog.Model
-	revsetModel       *revset.Model
-	previewModel      *preview.Model
+	revisions          *revisions.Model
+	oplog              *oplog.Model
+	revsetModel        *revset.Model
+	previewModel       *preview.Model
 	bookmarkPanelModel *bookmark_panel.Model
-	diff              *diff.Model
-	leader            *leader.Model
-	flash             *flash.Model
-	state             common.State
-	status            *status.Model
-	password          *password.Model
-	context           *context.MainContext
-	scriptRunner      *scripting.Runner
-	keyMap            config.KeyMappings[key.Binding]
-	stacked           SizableModel
-	dragTarget        common.Draggable
-	sequenceOverlay   *customcommands.SequenceOverlay
+	diff               *diff.Model
+	leader             *leader.Model
+	flash              *flash.Model
+	state              common.State
+	status             *status.Model
+	password           *password.Model
+	context            *context.MainContext
+	scriptRunner       *scripting.Runner
+	keyMap             config.KeyMappings[key.Binding]
+	stacked            SizableModel
+	dragTarget         common.Draggable
+	sequenceOverlay    *customcommands.SequenceOverlay
 }
 
 type triggerAutoRefreshMsg struct{}
@@ -401,6 +401,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	case bookmark_panel.EndMoveModeMsg:
 		// Move operation ended, restore focus to bookmark panel
 		return m.bookmarkPanelModel.Update(msg)
+	case bookmark_panel.StartCreateModeMsg:
+		// User pressed 'c' in bookmark panel - start bookmark create operation
+		return m.revisions.Update(msg)
+	case bookmark_panel.EndCreateModeMsg:
+		// Create operation ended, restore focus to bookmark panel
+		return m.bookmarkPanelModel.Update(msg)
 	case common.ShowPreview:
 		m.previewModel.SetVisible(bool(msg))
 		cmds = append(cmds, common.SelectionChanged(m.context.SelectedItem))
@@ -501,6 +507,14 @@ func (m *Model) UpdatePreviewPosition() {
 	}
 }
 
+func (m *Model) UpdateBookmarkPanelPosition() {
+	if m.bookmarkPanelModel.AutoPosition() {
+		// Same logic as preview: bottom when tall, right side when wide
+		atBottom := m.Height >= m.Width/2
+		m.bookmarkPanelModel.SetPosition(true, atBottom)
+	}
+}
+
 func (m *Model) View() string {
 	if m.Width == 0 || m.Height == 0 {
 		return ""
@@ -530,8 +544,12 @@ func (m *Model) View() string {
 	// Handle bookmark panel - it takes priority over preview if both are visible
 	var bookmarkPanelArea cellbuf.Rectangle
 	if m.bookmarkPanelModel.Visible() {
-		// Bookmark panel is always on the right side
-		centerArea, bookmarkPanelArea = layout.SplitHorizontal(centerArea, layout.Percent(100-m.bookmarkPanelModel.WindowPercentage()))
+		m.UpdateBookmarkPanelPosition()
+		if m.bookmarkPanelModel.AtBottom() {
+			centerArea, bookmarkPanelArea = layout.SplitVertical(centerArea, layout.Percent(100-m.bookmarkPanelModel.WindowPercentage()))
+		} else {
+			centerArea, bookmarkPanelArea = layout.SplitHorizontal(centerArea, layout.Percent(100-m.bookmarkPanelModel.WindowPercentage()))
+		}
 		m.bookmarkPanelModel.SetFrame(bookmarkPanelArea)
 	} else if m.previewModel.Visible() {
 		// Only show preview if bookmark panel is not visible
@@ -631,6 +649,9 @@ func (m *Model) findViewAt(x, y int) common.IMouseAware {
 	}
 	if m.previewModel.Visible() && pt.In(m.previewModel.Frame) {
 		return m.previewModel
+	}
+	if m.bookmarkPanelModel.Visible() && pt.In(m.bookmarkPanelModel.Frame) {
+		return m.bookmarkPanelModel
 	}
 	return nil
 }
