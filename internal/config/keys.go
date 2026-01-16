@@ -100,6 +100,7 @@ func Convert(m KeyMappings[keys]) KeyMappings[key.Binding] {
 			Forget:  key.NewBinding(key.WithKeys(m.Bookmark.Forget...), key.WithHelp(JoinKeys(m.Bookmark.Forget), "forget")),
 			Track:   key.NewBinding(key.WithKeys(m.Bookmark.Track...), key.WithHelp(JoinKeys(m.Bookmark.Track), "track")),
 			Untrack: key.NewBinding(key.WithKeys(m.Bookmark.Untrack...), key.WithHelp(JoinKeys(m.Bookmark.Untrack), "untrack")),
+			New:     key.NewBinding(key.WithKeys(m.Bookmark.New...), key.WithHelp(JoinKeys(m.Bookmark.New), "new revision")),
 		},
 		Preview: previewModeKeys[key.Binding]{
 			Mode:         key.NewBinding(key.WithKeys(m.Preview.Mode...), key.WithHelp(JoinKeys(m.Preview.Mode), "preview")),
@@ -223,6 +224,7 @@ type bookmarkModeKeys[T any] struct {
 	Forget  T `toml:"forget"`
 	Track   T `toml:"track"`
 	Untrack T `toml:"untrack"`
+	New     T `toml:"new"`
 }
 
 type squashModeKeys[T any] struct {
