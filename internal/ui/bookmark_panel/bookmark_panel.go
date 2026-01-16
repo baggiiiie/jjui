@@ -347,6 +347,13 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			return func() tea.Msg {
 				return StartCreateModeMsg{}
 			}
+		case msg.String() == "n":
+			// Create a new revision on the current bookmark
+			if bookmark := m.SelectedBookmark(); bookmark != nil {
+				selected := jj.NewSelectedRevisions(&jj.Commit{ChangeId: bookmark.Name})
+				return m.context.RunCommand(jj.New(selected), common.RefreshAndSelect("@"))
+			}
+			return nil
 		case msg.String() == "d":
 			// Delete bookmark
 			if bookmark := m.SelectedBookmark(); bookmark != nil && bookmark.IsDeletable() {
@@ -441,6 +448,7 @@ func (m *Model) ShortHelp() []key.Binding {
 	bindings := []key.Binding{
 		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "view revset")),
 		key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "create")),
+		key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "new revision")),
 		key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "move")),
 		key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete")),
 		key.NewBinding(key.WithKeys("f"), key.WithHelp("f", "forget")),

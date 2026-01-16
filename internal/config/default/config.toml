@@ -96,6 +96,7 @@ limit = 0
     forget = ["f"]
     track = ["t"]
     untrack = ["u"]
+    new = ["n"]
   [keys.bookmark_panel]
     toggle = ["X"]
   [keys.inline_describe]
