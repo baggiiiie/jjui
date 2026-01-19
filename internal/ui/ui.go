@@ -559,8 +559,9 @@ func (m *Model) renderRevisionsLayout(box layout.Box) {
 			m.bookmarkPanelModel.List.SetSize(bookmarkBox.R.Dx()-2, bookmarkBox.R.Dy()-6)
 
 			// Render bookmark panel using its View() method (legacy)
+			// Use z-index 2 so it renders above main content
 			bookmarkView := m.bookmarkPanelModel.View()
-			m.displayContext.AddDraw(bookmarkBox.R, bookmarkView, 0)
+			m.displayContext.AddDraw(bookmarkBox.R, bookmarkView, 2)
 		} else {
 			contentBox = box
 		}
