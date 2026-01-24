@@ -86,6 +86,20 @@ type ItemClickedMsg struct {
 	Index int
 }
 
+// DragSelectStartMsg is sent when the user starts a drag selection on a revision.
+type DragSelectStartMsg struct {
+	Index  int
+	StartX int
+	StartY int
+}
+
+// SetDragStart implements render.DragStartCarrier
+func (d DragSelectStartMsg) SetDragStart(x, y int) tea.Msg {
+	d.StartX = x
+	d.StartY = y
+	return d
+}
+
 type ViewportScrollMsg struct {
 	Delta      int
 	Horizontal bool
@@ -1104,4 +1118,41 @@ func (m *Model) jumpToParent(revisions jj.SelectedRevisions) {
 	if parentIndex != -1 {
 		m.SetCursor(parentIndex)
 	}
+}
+
+// ItemIndexAt returns the item index at the given screen position.
+// Returns -1 if no item is at that position.
+func (m *Model) ItemIndexAt(x, y int) int {
+	return m.displayContextRenderer.ItemIndexAt(x, y)
+}
+
+// CheckItemAtIndex checks (selects) the item at the given index.
+// Used during drag selection.
+func (m *Model) CheckItemAtIndex(index int) {
+	if index < 0 || index >= len(m.rows) {
+		return
+	}
+	commit := m.rows[index].Commit
+	if commit == nil {
+		return
+	}
+	changeId := commit.GetChangeId()
+	item := appContext.SelectedRevision{ChangeId: changeId, CommitId: commit.CommitId}
+	// Only add if not already checked
+	m.context.AddCheckedItem(item)
+}
+
+// ToggleCheckAtIndex toggles the checked state of the item at the given index.
+// Used for ctrl+click selection.
+func (m *Model) ToggleCheckAtIndex(index int) {
+	if index < 0 || index >= len(m.rows) {
+		return
+	}
+	commit := m.rows[index].Commit
+	if commit == nil {
+		return
+	}
+	changeId := commit.GetChangeId()
+	item := appContext.SelectedRevision{ChangeId: changeId, CommitId: commit.CommitId}
+	m.context.ToggleCheckedItem(item)
 }

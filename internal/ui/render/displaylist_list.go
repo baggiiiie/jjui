@@ -14,11 +14,14 @@ type ClickMessage = tea.Msg
 
 type ClickMessageFunc func(index int) ClickMessage
 
+type DragMessageFunc func(index int) tea.Msg
+
 type ListRenderer struct {
 	StartLine     int
 	ScrollMsg     tea.Msg
 	FirstRowIndex int
 	LastRowIndex  int
+	lastSpans     []Span // Store spans from last render for drag interactions
 }
 
 func NewListRenderer(scrollMsg tea.Msg) *ListRenderer {
@@ -86,6 +89,7 @@ func (r *ListRenderer) Render(
 	}
 
 	spans, _ := LayoutAll(viewport, itemCount, measureAdapter)
+	r.lastSpans = spans // Store spans for drag interactions
 	r.FirstRowIndex = -1
 	r.LastRowIndex = -1
 	for _, span := range spans {
@@ -180,4 +184,32 @@ func (r *ListRenderer) RegisterScroll(dl *DisplayContext, viewRect layout.Box) {
 		InteractionScroll,
 		0,
 	)
+}
+
+// RegisterDrag registers drag interactions for each item.
+// Call this after Render if you want to enable drag selection.
+func (r *ListRenderer) RegisterDrag(dl *DisplayContext, dragMsg DragMessageFunc) {
+	if dragMsg == nil {
+		return
+	}
+	for _, span := range r.lastSpans {
+		dl.AddInteraction(
+			span.Rect,
+			dragMsg(span.Index),
+			InteractionDrag,
+			0,
+		)
+	}
+}
+
+// ItemIndexAt returns the item index at the given screen position.
+// Returns -1 if no item is at that position.
+func (r *ListRenderer) ItemIndexAt(x, y int) int {
+	for _, span := range r.lastSpans {
+		if x >= span.Rect.Min.X && x < span.Rect.Max.X &&
+			y >= span.Rect.Min.Y && y < span.Rect.Max.Y {
+			return span.Index
+		}
+	}
+	return -1
 }

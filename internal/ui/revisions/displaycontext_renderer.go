@@ -3,6 +3,7 @@ package revisions
 import (
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/parser"
@@ -96,6 +97,14 @@ func (r *DisplayContextRenderer) Render(
 	// Register scroll only when no overlay operation is active
 	if overlay, ok := operation.(common.Overlay); !ok || !overlay.IsOverlay() {
 		r.listRenderer.RegisterScroll(dl, viewRect)
+	}
+
+	// Register drag interactions for drag selection
+	if overlay, ok := operation.(common.Overlay); !ok || !overlay.IsOverlay() {
+		dragMsg := func(index int) tea.Msg {
+			return DragSelectStartMsg{Index: index}
+		}
+		r.listRenderer.RegisterDrag(dl, dragMsg)
 	}
 }
 
@@ -490,4 +499,10 @@ func (r *DisplayContextRenderer) GetFirstRowIndex() int {
 // GetLastRowIndex returns the last visible row index (inclusive).
 func (r *DisplayContextRenderer) GetLastRowIndex() int {
 	return r.listRenderer.GetLastRowIndex()
+}
+
+// ItemIndexAt returns the item index at the given screen position.
+// Returns -1 if no item is at that position.
+func (r *DisplayContextRenderer) ItemIndexAt(x, y int) int {
+	return r.listRenderer.ItemIndexAt(x, y)
 }

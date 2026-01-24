@@ -61,6 +61,12 @@ type Model struct {
 	revisionsSplit  *split
 	activeSplit     *split
 	splitActive     bool
+	// Drag selection state
+	dragSelectActive    bool   // true once actual drag motion detected
+	dragSelectPending   bool   // true while waiting to see if it's a drag or click
+	dragSelectLastIndex int
+	dragSelectStartX    int
+	dragSelectStartY    int
 }
 
 type triggerAutoRefreshMsg struct{}
@@ -187,10 +193,71 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			}
 		}
 
+		// Handle ctrl+click to toggle check
+		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && msg.Ctrl {
+			if m.oplog == nil && m.revisions != nil {
+				index := m.revisions.ItemIndexAt(msg.X, msg.Y)
+				if index != -1 {
+					m.revisions.ToggleCheckAtIndex(index)
+					m.revisions.SetCursor(index)
+				}
+			}
+			return nil
+		}
+
+		// Handle drag selection
+		if m.dragSelectActive || m.dragSelectPending {
+			switch msg.Action {
+			case tea.MouseActionRelease:
+				m.dragSelectActive = false
+				m.dragSelectPending = false
+				m.dragSelectLastIndex = -1
+				return nil
+			case tea.MouseActionMotion:
+				// If pending, check if we've moved enough to start drag
+				if m.dragSelectPending && !m.dragSelectActive {
+					dx := msg.X - m.dragSelectStartX
+					dy := msg.Y - m.dragSelectStartY
+					if dx != 0 || dy != 0 {
+						// Motion detected, start actual drag
+						m.dragSelectActive = true
+						// Check the starting item now
+						if m.revisions != nil {
+							m.revisions.CheckItemAtIndex(m.dragSelectLastIndex)
+						}
+					}
+				}
+
+				// If active drag, check items as we move
+				if m.dragSelectActive && m.oplog == nil && m.revisions != nil {
+					index := m.revisions.ItemIndexAt(msg.X, msg.Y)
+					if index != -1 && index != m.dragSelectLastIndex {
+						m.revisions.CheckItemAtIndex(index)
+						m.dragSelectLastIndex = index
+					}
+				}
+				return nil
+			}
+		}
+
 		// Process interactions from DisplayContext first
 		if m.displayContext != nil {
 			if interactionMsg, handled := m.displayContext.ProcessMouseEvent(msg); handled {
 				if interactionMsg != nil {
+					// Check if this is a drag select start message
+					if dragStart, ok := interactionMsg.(revisions.DragSelectStartMsg); ok {
+						// Set pending state - we'll start actual drag on motion
+						m.dragSelectPending = true
+						m.dragSelectActive = false
+						m.dragSelectLastIndex = dragStart.Index
+						m.dragSelectStartX = dragStart.StartX
+						m.dragSelectStartY = dragStart.StartY
+						if m.revisions != nil {
+							// Move cursor like a click would (don't check until drag motion)
+							m.revisions.SetCursor(dragStart.Index)
+						}
+						return nil
+					}
 					// Send the interaction message back through Update
 					return func() tea.Msg { return interactionMsg }
 				}
