@@ -81,3 +81,11 @@ func (InlineDescribeAccept) isIntent() {}
 type InlineDescribeEditor struct{}
 
 func (InlineDescribeEditor) isIntent() {}
+
+type BatchConfirm struct{}
+
+func (BatchConfirm) isIntent() {}
+
+type BatchCancel struct{}
+
+func (BatchCancel) isIntent() {}

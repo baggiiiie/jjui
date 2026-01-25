@@ -125,6 +125,12 @@ type StartAbandon struct {
 
 func (StartAbandon) isIntent() {}
 
+type StartBatch struct {
+	Selected *jj.Commit
+}
+
+func (StartBatch) isIntent() {}
+
 type AbandonToggleSelect struct{}
 
 func (AbandonToggleSelect) isIntent() {}

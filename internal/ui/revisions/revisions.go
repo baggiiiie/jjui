@@ -34,6 +34,7 @@ import (
 	"github.com/idursun/jjui/internal/ui/graph"
 	"github.com/idursun/jjui/internal/ui/operations"
 	"github.com/idursun/jjui/internal/ui/operations/abandon"
+	"github.com/idursun/jjui/internal/ui/operations/batch"
 	"github.com/idursun/jjui/internal/ui/operations/bookmark"
 	"github.com/idursun/jjui/internal/ui/operations/details"
 	"github.com/idursun/jjui/internal/ui/operations/evolog"
@@ -260,6 +261,8 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 		}
 		m.op = operations.NewDefault()
 		return m.updateSelection()
+	case batch.BatchToggleRangeMsg:
+		return m.handleBatchToggleRange(msg)
 	case common.QuickSearchMsg:
 		m.quickSearch = strings.ToLower(string(msg))
 		m.SetCursor(m.search(0))
@@ -445,6 +448,8 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 				return m.handleIntent(intents.StartDuplicate{})
 			case key.Matches(msg, m.keymap.SetParents):
 				return m.handleIntent(intents.SetParents{})
+			case key.Matches(msg, m.keymap.BatchSelect):
+				return m.handleIntent(intents.StartBatch{})
 			}
 		}
 	}
@@ -464,6 +469,8 @@ func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
 		return m.startAbsorb(intent)
 	case intents.StartAbandon:
 		return m.startAbandon(intent)
+	case intents.StartBatch:
+		return m.startBatch(intent)
 	case intents.StartNew:
 		return m.startNew(intent)
 	case intents.CommitWorkingCopy:
@@ -720,6 +727,53 @@ func (m *Model) startAbandon(intent intents.StartAbandon) tea.Cmd {
 	}
 	m.op = abandon.NewOperation(m.context, selected)
 	return m.op.Init()
+}
+
+func (m *Model) startBatch(intent intents.StartBatch) tea.Cmd {
+	start := intent.Selected
+	if start == nil {
+		start = m.SelectedRevision()
+	}
+	if start == nil {
+		return nil
+	}
+	m.op = batch.NewOperation(m.context, start)
+	return m.op.Init()
+}
+
+func (m *Model) handleBatchToggleRange(msg batch.BatchToggleRangeMsg) tea.Cmd {
+	// Find indices of start and end revisions
+	startIdx := -1
+	endIdx := -1
+
+	for i, row := range m.rows {
+		if row.Commit.ChangeId == msg.StartChangeId {
+			startIdx = i
+		}
+		if row.Commit.ChangeId == msg.EndChangeId {
+			endIdx = i
+		}
+	}
+
+	if startIdx == -1 || endIdx == -1 {
+		return nil
+	}
+
+	// Ensure startIdx <= endIdx
+	if startIdx > endIdx {
+		startIdx, endIdx = endIdx, startIdx
+	}
+
+	// Toggle all revisions in range (inclusive)
+	for i := startIdx; i <= endIdx; i++ {
+		commit := m.rows[i].Commit
+		m.context.ToggleCheckedItem(appContext.SelectedRevision{
+			CommitId: commit.CommitId,
+			ChangeId: commit.ChangeId,
+		})
+	}
+
+	return nil
 }
 
 func (m *Model) navigate(intent intents.Navigate) tea.Cmd {

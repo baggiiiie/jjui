@@ -48,6 +48,7 @@ func Convert(m KeyMappings[keys]) KeyMappings[key.Binding] {
 		Leader:           key.NewBinding(key.WithKeys(m.Leader...), key.WithHelp(JoinKeys(m.Leader), "leader")),
 		Suspend:          key.NewBinding(key.WithKeys(m.Suspend...), key.WithHelp(JoinKeys(m.Suspend), "suspend")),
 		SetParents:       key.NewBinding(key.WithKeys(m.SetParents...), key.WithHelp(JoinKeys(m.SetParents), "set parents")),
+		BatchSelect:      key.NewBinding(key.WithKeys(m.BatchSelect...), key.WithHelp(JoinKeys(m.BatchSelect), "batch select")),
 		ExecJJ:           key.NewBinding(key.WithKeys(m.ExecJJ...), key.WithHelp(JoinKeys(m.ExecJJ), "interactive jj")),
 		ExecShell:        key.NewBinding(key.WithKeys(m.ExecShell...), key.WithHelp(JoinKeys(m.ExecShell), "interactive shell command")),
 		Revert: revertModeKeys[key.Binding]{
@@ -201,6 +202,7 @@ type KeyMappings[T any] struct {
 	Leader            T                         `toml:"leader"`
 	Suspend           T                         `toml:"suspend"`
 	SetParents        T                         `toml:"set_parents"`
+	BatchSelect       T                         `toml:"batch_select"`
 	Revert            revertModeKeys[T]         `toml:"revert"`
 	Rebase            rebaseModeKeys[T]         `toml:"rebase"`
 	Duplicate         duplicateModeKeys[T]      `toml:"duplicate"`

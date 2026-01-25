@@ -38,6 +38,7 @@ limit = 0
   leader = ["\\"]
   suspend = ["ctrl+z"]
   set_parents = ["M"]
+  batch_select = ["V"]
   [keys.rebase]
     mode = ["r"]
     revision = ["r"]
