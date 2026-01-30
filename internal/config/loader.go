@@ -10,6 +10,16 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+// GetConfigDir returns the directory containing the config file.
+// Returns empty string if no config directory can be determined.
+func GetConfigDir() string {
+	configPath := getConfigFilePath()
+	if configPath == "" {
+		return ""
+	}
+	return filepath.Dir(configPath)
+}
+
 func getConfigFilePath() string {
 	var configDirs []string
 

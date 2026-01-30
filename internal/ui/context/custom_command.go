@@ -58,7 +58,7 @@ func (c CustomCommandBase) Label() string {
 	return c.Name
 }
 
-func LoadCustomCommands(output string) (map[string]CustomCommand, error) {
+func LoadCustomCommands(output string, configDir string) (map[string]CustomCommand, error) {
 	type customCommandsToml struct {
 		RawCustomCommands map[string]toml.Primitive `toml:"custom_commands"`
 	}
@@ -84,6 +84,16 @@ func LoadCustomCommands(output string) (map[string]CustomCommand, error) {
 			var cmd CustomLuaCommand
 			if err := metadata.PrimitiveDecode(primitive, &cmd); err != nil {
 				return nil, fmt.Errorf("failed to decode lua command %s: %w", name, err)
+			}
+			cmd.Name = name
+			registry[name] = cmd
+		} else if _, hasLuaFile := tempMap["lua_file"]; hasLuaFile {
+			var cmd CustomLuaCommand
+			if err := metadata.PrimitiveDecode(primitive, &cmd); err != nil {
+				return nil, fmt.Errorf("failed to decode lua_file command %s: %w", name, err)
+			}
+			if err := cmd.LoadFromFile(configDir); err != nil {
+				return nil, fmt.Errorf("failed to load lua file for command %s: %w", name, err)
 			}
 			cmd.Name = name
 			registry[name] = cmd

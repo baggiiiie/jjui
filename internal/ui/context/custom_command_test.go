@@ -1,6 +1,8 @@
 package context
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/idursun/jjui/internal/config"
@@ -16,7 +18,7 @@ func TestLoad_CustomCommands(t *testing.T) {
 "update revset" = { key = ["M"],  revset = "::$change_id" }
 "sequence command" = { key_sequence = ["g", "s"], args = ["status"], desc = "status for change" }
 `
-	registry, err := LoadCustomCommands(content)
+	registry, err := LoadCustomCommands(content, "")
 	assert.NoError(t, err)
 	assert.Len(t, registry, 5)
 
@@ -98,4 +100,35 @@ func TestLoad_CustomCommands(t *testing.T) {
 			tc.testFunc(t, cmd)
 		})
 	}
+}
+
+func TestLoad_CustomCommands_LuaFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	luaContent := `flash("hello from file")`
+	luaPath := filepath.Join(tmpDir, "test.lua")
+	os.WriteFile(luaPath, []byte(luaContent), 0644)
+
+	content := `
+[custom_commands]
+"file command" = { key = ["f"], lua_file = "test.lua" }
+`
+
+	registry, err := LoadCustomCommands(content, tmpDir)
+	assert.NoError(t, err)
+
+	cmd := registry["file command"]
+	luaCmd, ok := cmd.(CustomLuaCommand)
+	assert.True(t, ok)
+	assert.Equal(t, luaContent, luaCmd.Script)
+}
+
+func TestLoad_CustomCommands_LuaFile_NotFound(t *testing.T) {
+	content := `
+[custom_commands]
+"missing" = { key = ["f"], lua_file = "nonexistent.lua" }
+`
+
+	_, err := LoadCustomCommands(content, t.TempDir())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load lua file for command missing")
 }

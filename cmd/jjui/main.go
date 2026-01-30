@@ -143,7 +143,7 @@ func run() int {
 			fmt.Fprintf(os.Stderr, "Error loading configuration: %v\n", err)
 			return 1
 		}
-		if registry, err := context.LoadCustomCommands(string(output)); err != nil {
+		if registry, err := context.LoadCustomCommands(string(output), config.GetConfigDir()); err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading custom commands: %v\n", err)
 			return 1
 		} else {
