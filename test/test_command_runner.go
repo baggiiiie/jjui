@@ -91,6 +91,13 @@ func (t *CommandRunner) RunCommand(args []string, continuations ...tea.Cmd) tea.
 	return tea.Batch(cmds...)
 }
 
+func (t *CommandRunner) RunCommandBackground(args []string) tea.Cmd {
+	return func() tea.Msg {
+		output, err := t.RunCommandImmediate(args)
+		return common.CommandCompletedMsg{Output: string(output), Err: err}
+	}
+}
+
 func (t *CommandRunner) RunInteractiveCommand(args []string, continuation tea.Cmd) tea.Cmd {
 	return func() tea.Msg {
 		_, err := t.RunCommandImmediate(args)
