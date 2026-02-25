@@ -23,6 +23,7 @@ type CommandRunner interface {
 	RunCommandImmediateWithEnv(args []string, env []string) ([]byte, error)
 	RunCommandStreaming(ctx context.Context, args []string) (*StreamingCommand, error)
 	RunCommand(args []string, continuations ...tea.Cmd) tea.Cmd
+	RunCommandBackground(args []string) tea.Cmd
 	RunCommandWithInput(args []string, input string, continuations ...tea.Cmd) tea.Cmd
 	RunInteractiveCommand(args []string, continuation tea.Cmd) tea.Cmd
 }
@@ -143,6 +144,23 @@ func (a *MainCommandRunner) RunCommandWithInput(args []string, input string, con
 
 func (a *MainCommandRunner) RunCommand(args []string, continuations ...tea.Cmd) tea.Cmd {
 	return a.runCommandWithInput(args, nil, continuations)
+}
+
+func (a *MainCommandRunner) RunCommandBackground(args []string) tea.Cmd {
+	return func() tea.Msg {
+		log.Println("RunCommandBackground:", args)
+		c := exec.Command("jj", args...)
+		c.Dir = a.Location
+		output, err := c.Output()
+		if err != nil {
+			var exitError *exec.ExitError
+			if errors.As(err, &exitError) {
+				return common.CommandCompletedMsg{Err: errors.New(string(exitError.Stderr))}
+			}
+			return common.CommandCompletedMsg{Err: err}
+		}
+		return common.CommandCompletedMsg{Output: string(bytes.TrimRight(output, "\n"))}
+	}
 }
 
 func (a *MainCommandRunner) RunInteractiveCommand(args []string, continuation tea.Cmd) tea.Cmd {
