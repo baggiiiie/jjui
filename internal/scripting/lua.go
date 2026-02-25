@@ -283,6 +283,10 @@ func registerAPI(L *lua.LState, ctx *uicontext.MainContext) {
 		args := argsFromLua(L)
 		return yieldStep(L, step{cmd: ctx.RunCommand(args)})
 	})
+	jjBackgroundFn := L.NewFunction(func(L *lua.LState) int {
+		args := argsFromLua(L)
+		return yieldStep(L, step{cmd: ctx.RunCommandBackground(args), matcher: matchCommandCompleted})
+	})
 	jjInteractiveFn := L.NewFunction(func(L *lua.LState) int {
 		args := argsFromLua(L)
 		return yieldStep(L, step{cmd: ctx.RunInteractiveCommand(args, nil)})
@@ -431,6 +435,7 @@ func registerAPI(L *lua.LState, ctx *uicontext.MainContext) {
 	root.RawSetString("revset", revsetTable)
 	root.RawSetString("context", contextTable)
 	root.RawSetString("jj_async", jjAsyncFn)
+	root.RawSetString("jj_background", jjBackgroundFn)
 	root.RawSetString("jj_interactive", jjInteractiveFn)
 	root.RawSetString("jj", jjFn)
 	root.RawSetString("flash", flashFn)
@@ -461,6 +466,7 @@ func registerAPI(L *lua.LState, ctx *uicontext.MainContext) {
 	}
 	L.SetGlobal("context", contextTable)
 	L.SetGlobal("jj_async", jjAsyncFn)
+	L.SetGlobal("jj_background", jjBackgroundFn)
 	L.SetGlobal("jj_interactive", jjInteractiveFn)
 	L.SetGlobal("jj", jjFn)
 	L.SetGlobal("flash", flashFn)
@@ -746,6 +752,18 @@ func matchActionCompleted(id string) func(tea.Msg) (bool, []lua.LValue) {
 	return func(msg tea.Msg) (bool, []lua.LValue) {
 		completed, ok := msg.(common.ActionCompletedMsg)
 		return ok && completed.ID == id, nil
+	}
+}
+
+func matchCommandCompleted(msg tea.Msg) (bool, []lua.LValue) {
+	switch msg := msg.(type) {
+	case common.CommandCompletedMsg:
+		if msg.Err != nil {
+			return true, []lua.LValue{lua.LNil, lua.LString(msg.Err.Error())}
+		}
+		return true, []lua.LValue{lua.LString(msg.Output), lua.LNil}
+	default:
+		return false, nil
 	}
 }
 
