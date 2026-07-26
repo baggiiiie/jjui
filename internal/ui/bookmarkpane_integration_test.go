@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/actions"
 	keybindings "github.com/idursun/jjui/internal/ui/bindings"
@@ -19,6 +20,10 @@ import (
 
 func newBookmarkPaneModel(t *testing.T, output string) *Model {
 	t.Helper()
+	originalEnabled := config.Current.NewBookmarksEnabled
+	config.Current.NewBookmarksEnabled = true
+	t.Cleanup(func() { config.Current.NewBookmarksEnabled = originalEnabled })
+
 	commandRunner := test.NewTestCommandRunner(t)
 	commandRunner.Expect(jj.BookmarkListAll()).SetOutput([]byte(output))
 	t.Cleanup(commandRunner.Verify)
@@ -36,6 +41,61 @@ func bookmarkPaneFocused(model *Model) bool {
 
 func bookmarkPaneVisible(model *Model) bool {
 	return strings.Contains(renderSplitView(model, 100, 20), "Bookmarks")
+}
+
+func Test_OpenBookmarks_UsesExperimentalPaneWhenEnabled(t *testing.T) {
+	model := newBookmarkPaneModel(t, "main;.;true;false;false;false;abc123\n")
+
+	cmd, handled := model.HandleIntent(intents.OpenBookmarks{})
+	require.True(t, handled)
+	test.SimulateModel(model, cmd)
+
+	assert.True(t, bookmarkPaneVisible(model))
+	assert.True(t, bookmarkPaneFocused(model))
+	assert.Nil(t, model.stacked)
+}
+
+func Test_ToggleBookmarkPane_DoesNothingWhenDisabled(t *testing.T) {
+	originalEnabled := config.Current.NewBookmarksEnabled
+	config.Current.NewBookmarksEnabled = false
+	t.Cleanup(func() { config.Current.NewBookmarksEnabled = originalEnabled })
+
+	model := NewUI(test.NewTestContext(test.NewTestCommandRunner(t)))
+
+	cmd, handled := model.HandleIntent(intents.ToggleBookmarkPane{})
+	require.True(t, handled)
+	test.SimulateModel(model, cmd)
+
+	assert.False(t, bookmarkPaneVisible(model))
+	assert.False(t, bookmarkPaneFocused(model))
+}
+
+func Test_OpenBookmarks_UsesLegacyViewWhenExperimentalPaneDisabled(t *testing.T) {
+	originalEnabled := config.Current.NewBookmarksEnabled
+	originalLogBatching := config.Current.Revisions.LogBatching
+	config.Current.NewBookmarksEnabled = false
+	config.Current.Revisions.LogBatching = false
+	t.Cleanup(func() {
+		config.Current.NewBookmarksEnabled = originalEnabled
+		config.Current.Revisions.LogBatching = originalLogBatching
+	})
+
+	commandRunner := test.NewTestCommandRunner(t)
+	ctx := test.NewTestContext(commandRunner)
+	commandRunner.Expect(jj.Log(ctx.CurrentRevset, config.Current.Limit, ctx.JJConfig.Templates.Log)).SetOutput([]byte(testLogOutput))
+	commandRunner.Expect(jj.GitRemoteList()).SetOutput([]byte("origin https://example.com/repo.git\n"))
+	t.Cleanup(commandRunner.Verify)
+
+	model := NewUI(ctx)
+	test.SimulateModel(model, model.revisions.Update(common.RefreshMsg{SelectedRevision: "abc123"}))
+	require.NotNil(t, model.revisions.SelectedRevision())
+
+	cmd, handled := model.HandleIntent(intents.OpenBookmarks{})
+	require.True(t, handled)
+	assert.NotNil(t, cmd)
+
+	assert.False(t, bookmarkPaneVisible(model))
+	assert.NotNil(t, model.stacked)
 }
 
 func Test_ToggleBookmarkPane_OpensFocusedPaneAndTabReturnsFocusToRevisions(t *testing.T) {

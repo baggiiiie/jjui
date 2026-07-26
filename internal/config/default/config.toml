@@ -1,6 +1,7 @@
 limit = 0
 
 bindings_profile = ":builtin"
+new_bookmarks_enabled = false
 
 [ui]
   theme = ""

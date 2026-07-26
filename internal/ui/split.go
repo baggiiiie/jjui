@@ -96,14 +96,10 @@ func (m *Model) handleSplitIntent(intent intents.Intent) (tea.Cmd, bool) {
 
 	switch msg := intent.(type) {
 	case intents.ToggleBookmarkPane:
-		if m.splitContainer.ActiveID() == bookmarkContentID {
-			m.splitContainer.Close()
+		if !config.Current.NewBookmarksEnabled {
 			return nil, true
 		}
-		m.syncBookmarkPaneContext()
-		cmd, _ := m.splitContainer.ShowContent(bookmarkContentID)
-		m.splitContainer.FocusSplitContent()
-		return cmd, true
+		return m.toggleBookmarkPane(), true
 	case intents.FocusNextPane:
 		if m.splitContainer.ActiveID() == bookmarkContentID {
 			m.splitContainer.ToggleFocus()
@@ -133,6 +129,17 @@ func (m *Model) handleSplitIntent(intent intents.Intent) (tea.Cmd, bool) {
 		return tea.Batch(cmd, m.splitContainer.Update(msg)), true
 	}
 	return nil, false
+}
+
+func (m *Model) toggleBookmarkPane() tea.Cmd {
+	if m.splitContainer.ActiveID() == bookmarkContentID {
+		m.splitContainer.Close()
+		return nil
+	}
+	m.syncBookmarkPaneContext()
+	cmd, _ := m.splitContainer.ShowContent(bookmarkContentID)
+	m.splitContainer.FocusSplitContent()
+	return cmd
 }
 
 func (m *Model) updateSplit(msg tea.Msg) tea.Cmd {

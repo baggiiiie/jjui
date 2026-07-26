@@ -17,17 +17,18 @@ var configFS embed.FS
 var Current = loadDefaultConfig()
 
 type Config struct {
-	BindingsProfile string          `toml:"bindings_profile"`
-	Actions         []ActionConfig  `toml:"actions"`
-	Bindings        []BindingConfig `toml:"bindings"`
-	UI              UIConfig        `toml:"ui"`
-	Suggest         SuggestConfig   `toml:"suggest"`
-	Revisions       RevisionsConfig `toml:"revisions"`
-	Preview         PreviewConfig   `toml:"preview"`
-	OpLog           OpLogConfig     `toml:"oplog"`
-	Limit           int             `toml:"limit"`
-	Git             GitConfig       `toml:"git"`
-	Ssh             SshConfig       `toml:"ssh"`
+	BindingsProfile     string          `toml:"bindings_profile"`
+	Actions             []ActionConfig  `toml:"actions"`
+	Bindings            []BindingConfig `toml:"bindings"`
+	NewBookmarksEnabled bool            `toml:"new_bookmarks_enabled"`
+	UI                  UIConfig        `toml:"ui"`
+	Suggest             SuggestConfig   `toml:"suggest"`
+	Revisions           RevisionsConfig `toml:"revisions"`
+	Preview             PreviewConfig   `toml:"preview"`
+	OpLog               OpLogConfig     `toml:"oplog"`
+	Limit               int             `toml:"limit"`
+	Git                 GitConfig       `toml:"git"`
+	Ssh                 SshConfig       `toml:"ssh"`
 }
 
 type Color struct {

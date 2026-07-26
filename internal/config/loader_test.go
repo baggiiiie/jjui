@@ -296,6 +296,20 @@ func TestLoadDefaultConfig_SetsWindowTitleByDefault(t *testing.T) {
 	assert.True(t, cfg.UI.SetWindowTitle)
 }
 
+func TestLoadDefaultConfig_DisablesNewBookmarksByDefault(t *testing.T) {
+	cfg := loadDefaultConfig()
+
+	assert.False(t, cfg.NewBookmarksEnabled)
+}
+
+func TestLoad_NewBookmarksCanBeEnabled(t *testing.T) {
+	cfg := loadDefaultConfig()
+
+	require.NoError(t, cfg.Load("new_bookmarks_enabled = true", ""))
+
+	assert.True(t, cfg.NewBookmarksEnabled)
+}
+
 func TestLoad_UISetWindowTitleCanBeDisabled(t *testing.T) {
 	cfg := loadDefaultConfig()
 
