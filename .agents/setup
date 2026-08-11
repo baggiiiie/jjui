@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+GO_VERSION="1.25.0"
+GO_SHA256="2852af0cb20a13139b3448992e69b868e50ed0f8a1e5940ee1de9e19a123b613"
+JJ_VERSION="0.44.0"
+JJ_SHA256="0a07bab4641a55fd2bc2fd1563ba3a3f9a577584086ad74086a1c5b69b3ffce9"
+
+tools_dir="$HOME/.local/share/jjui-orb"
+bin_dir="$HOME/.local/bin"
+go_dir="$tools_dir/go-$GO_VERSION"
+export PATH="$bin_dir:$PATH"
+
+echo "[setup] Preparing jjui development tools"
+mkdir -p "$tools_dir" "$bin_dir"
+
+if ! command -v curl >/dev/null 2>&1; then
+	echo "[setup] Installing download prerequisites"
+	sudo apt-get update
+	sudo apt-get install -y ca-certificates curl
+fi
+
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+
+if [[ ! -x "$go_dir/bin/go" ]]; then
+	echo "[setup] Installing Go $GO_VERSION"
+	curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o "$tmp_dir/go.tar.gz"
+	printf '%s  %s\n' "$GO_SHA256" "$tmp_dir/go.tar.gz" | sha256sum -c -
+	tar -C "$tmp_dir" -xzf "$tmp_dir/go.tar.gz"
+	rm -rf "$go_dir"
+	mv "$tmp_dir/go" "$go_dir"
+fi
+ln -sfn "$go_dir/bin/go" "$bin_dir/go"
+ln -sfn "$go_dir/bin/gofmt" "$bin_dir/gofmt"
+
+install_jj=true
+if command -v jj >/dev/null 2>&1; then
+	installed_jj_version="$(jj --version | sed -E 's/^jj ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')"
+	if [[ "$(printf '%s\n%s\n' "$JJ_VERSION" "$installed_jj_version" | sort -V | head -n 1)" == "$JJ_VERSION" ]]; then
+		install_jj=false
+	fi
+fi
+
+if [[ "$install_jj" == true ]]; then
+	echo "[setup] Installing Jujutsu $JJ_VERSION"
+	curl -fsSL "https://github.com/jj-vcs/jj/releases/download/v${JJ_VERSION}/jj-v${JJ_VERSION}-x86_64-unknown-linux-musl.tar.gz" -o "$tmp_dir/jj.tar.gz"
+	printf '%s  %s\n' "$JJ_SHA256" "$tmp_dir/jj.tar.gz" | sha256sum -c -
+	tar -C "$tmp_dir" -xzf "$tmp_dir/jj.tar.gz" ./jj
+	install -m 0755 "$tmp_dir/jj" "$bin_dir/jj"
+fi
+
+echo "[setup] Downloading Go modules"
+go mod download
+
+echo "[setup] Ready: $(go version); $(jj --version)"
