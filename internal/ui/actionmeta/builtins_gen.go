@@ -117,6 +117,7 @@ var builtInActionScopes = map[string][]string{
 	"file_search.preview_half_page_down":            {"file_search"},
 	"file_search.preview_half_page_up":              {"file_search"},
 	"file_search.toggle":                            {"file_search"},
+	"flash.dismiss":                                 {"flash"},
 	"git.apply":                                     {"git"},
 	"git.cancel":                                    {"git"},
 	"git.cycle_remotes":                             {"git"},
