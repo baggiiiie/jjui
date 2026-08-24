@@ -226,6 +226,9 @@ function wait_refresh() end
 ---@field toggle fun()
 ---@field close fun()
 
+---@class jjui.flash
+---@field dismiss fun()
+
 ---@class jjui.git
 ---@field apply fun()
 ---@field cancel fun()
@@ -607,6 +610,7 @@ function wait_refresh() end
 ---@field command_history jjui.command_history
 ---@field diff jjui.diff
 ---@field file_search jjui.file_search
+---@field flash jjui.flash
 ---@field git jjui.git
 ---@field help jjui.help
 ---@field input jjui.input
@@ -639,6 +643,7 @@ function wait_refresh() end
 ---@field command_history jjui.command_history
 ---@field diff jjui.diff
 ---@field file_search jjui.file_search
+---@field flash jjui.flash
 ---@field git jjui.git
 ---@field help jjui.help
 ---@field input jjui.input

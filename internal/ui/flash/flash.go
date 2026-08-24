@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/idursun/jjui/internal/config"
+	"github.com/idursun/jjui/internal/ui/actions"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
@@ -16,6 +17,7 @@ import (
 )
 
 var _ common.ImmediateModel = (*Model)(nil)
+var _ common.ScopeProvider = (*Model)(nil)
 
 type expireMessageMsg struct {
 	id uint64
@@ -52,7 +54,8 @@ func (m *Model) Init() tea.Cmd {
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case intents.Intent:
-		return m.handleIntent(msg)
+		cmd, _ := m.HandleIntent(msg)
+		return cmd
 	case expireMessageMsg:
 		m.removeLiveMessageByID(msg.id)
 		return nil
@@ -93,7 +96,15 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
+func (m *Model) Scopes() []common.Scope {
+	return []common.Scope{{
+		Name:    actions.ScopeFlash,
+		Leak:    common.LeakAll,
+		Handler: m,
+	}}
+}
+
+func (m *Model) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
 	switch intent := intent.(type) {
 	case intents.AddMessage:
 		id := m.add(intent.Text, intent.Err)
@@ -102,18 +113,18 @@ func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
 			if expiringMessageTimeout > time.Duration(0) {
 				return tea.Tick(expiringMessageTimeout, func(t time.Time) tea.Msg {
 					return expireMessageMsg{id: id}
-				})
+				}), true
 			}
 		}
-		return nil
-	case intents.DismissOldest:
+		return nil, true
+	case intents.Cancel, intents.DismissOldest:
 		if len(m.messages) == 0 {
-			return nil
+			return nil, false
 		}
 		m.DeleteOldest()
-		return nil
+		return nil, true
 	}
-	return nil
+	return nil, false
 }
 
 func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
