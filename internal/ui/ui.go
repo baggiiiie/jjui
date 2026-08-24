@@ -612,6 +612,9 @@ func (m *Model) dispatchScopes() []common.Scope {
 	if m.password != nil {
 		scopes = append(scopes, m.password.Scopes()...)
 	}
+	if m.flash.Any() {
+		scopes = append(scopes, m.flash.Scopes()...)
+	}
 
 	scopes = append(scopes, m.status.Scopes()...)
 	if m.revsetModel.IsEditing() {

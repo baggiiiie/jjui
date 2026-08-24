@@ -18,6 +18,7 @@ const (
 	ScopeCommandHistory             = "command_history"
 	ScopeDiff                       = "diff"
 	ScopeFileSearch                 = "file_search"
+	ScopeFlash                      = "flash"
 	ScopeGit                        = "git"
 	ScopeHelp                       = "help"
 	ScopeInput                      = "input"
@@ -294,6 +295,11 @@ func ResolveIntent(scope string, action keybindings.Action, args map[string]any)
 			return intents.FileSearchPreviewScroll{Kind: intents.PreviewHalfPageUp}, true
 		case keybindings.Action("file_search.toggle"):
 			return intents.FileSearchTogglePreview{}, true
+		}
+	case ScopeFlash:
+		switch action {
+		case keybindings.Action("flash.dismiss"):
+			return intents.DismissOldest{}, true
 		}
 	case ScopeGit:
 		switch action {

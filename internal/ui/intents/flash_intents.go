@@ -29,6 +29,7 @@ type AddMessage struct {
 
 func (AddMessage) isIntent() {}
 
+//jjui:bind scope=flash action=dismiss
 type DismissOldest struct{}
 
 func (DismissOldest) isIntent() {}

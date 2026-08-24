@@ -1837,6 +1837,31 @@ func Test_Update_DetailsEscClosesOperation_WithDefaultBindings(t *testing.T) {
 	assert.True(t, model.revisions.InNormalMode(), "default details esc should close details operation")
 }
 
+func Test_Update_DetailsEscDismissesFlashBeforeClosingOperation(t *testing.T) {
+	commandRunner := test.NewTestCommandRunner(t)
+	defer commandRunner.Verify()
+
+	ctx := test.NewTestContext(commandRunner)
+	model := NewUI(ctx)
+
+	op := details.NewOperation(ctx, &jj.Commit{ChangeId: "abc123", CommitId: "def456"})
+	model.Update(common.RestoreOperationMsg{Operation: op})
+	require.False(t, model.revisions.InNormalMode(), "details operation should be active")
+
+	model.Update(common.CommandCompletedMsg{Err: errors.New("test")})
+	require.True(t, model.flash.Any(), "command error flash should be visible")
+
+	cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	assert.Nil(t, cmd, "first esc should dismiss the flash without closing details")
+	assert.False(t, model.flash.Any(), "first esc should dismiss the flash")
+	assert.False(t, model.revisions.InNormalMode(), "details should remain active after dismissing the flash")
+
+	cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	require.NotNil(t, cmd, "second esc should close details")
+	test.SimulateModel(model, cmd)
+	assert.True(t, model.revisions.InNormalMode())
+}
+
 func Test_Update_DetailsFilterUsesDefaultBindingsAndClearsBeforeClose(t *testing.T) {
 	const statusOutput = "false false $\nM file.txt\nA newfile.txt\n"
 

@@ -7,6 +7,9 @@ bindings = [
     { key = "ctrl+z", action = "ui.suspend", scope = "ui", desc = "suspend" },
     { key = "tab", action = "ui.focus_next_pane", scope = "ui", desc = "next pane" },
 
+    # flash
+    { key = "esc", action = "flash.dismiss", scope = "flash", desc = "dismiss" },
+
     # help
     { key = "esc", action = "help.cancel", scope = "help", desc = "close" },
     { key = ["up", "k"], action = "help.scroll_up", scope = "help", desc = "up" },
