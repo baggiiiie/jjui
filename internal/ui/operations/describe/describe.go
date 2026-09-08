@@ -1,6 +1,8 @@
 package describe
 
 import (
+	"strings"
+
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"github.com/idursun/jjui/internal/jj"
@@ -32,6 +34,7 @@ type Operation struct {
 	input        textarea.Model
 	revision     *jj.Commit
 	originalDesc string
+	killedText   string
 }
 
 func (o *Operation) IsEditing() bool {
@@ -80,11 +83,48 @@ func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 	case intents.Intent:
 		cmd, _ := o.HandleIntent(msg)
 		return cmd
+	case tea.KeyPressMsg:
+		isCtrlKill := msg.Mod&tea.ModCtrl != 0 && (msg.Code == 'u' || msg.Code == 'k')
+		if isCtrlKill {
+			o.captureKilledText(msg.Code == 'k')
+		} else if msg.Code == 'y' && msg.Mod&tea.ModCtrl != 0 {
+			if o.killedText != "" {
+				o.input.InsertString(o.killedText)
+			}
+			return nil
+		}
 	}
 
 	o.input, cmd = o.input.Update(msg)
 
 	return cmd
+}
+
+func (o *Operation) captureKilledText(forward bool) {
+	lines := strings.Split(o.input.Value(), "\n")
+	row := o.input.Line()
+	col := o.input.Column()
+	if row < 0 || row >= len(lines) {
+		return
+	}
+
+	line := []rune(lines[row])
+	if col > len(line) {
+		col = len(line)
+	}
+	if forward && col < len(line) {
+		o.killedText = string(line[col:])
+	} else if forward && row < len(lines)-1 {
+		// Bubbles joins the current line with the next one when Ctrl+K is
+		// pressed at the end of a line.
+		o.killedText = "\n"
+	} else if !forward && col > 0 {
+		o.killedText = string(line[:col])
+	} else if !forward && row > 0 {
+		// Bubbles joins the current line with the previous one when Ctrl+U is
+		// pressed at the beginning of a line.
+		o.killedText = "\n"
+	}
 }
 
 func (o *Operation) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {

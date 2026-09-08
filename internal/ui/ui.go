@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -632,7 +633,7 @@ func (m *Model) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
 			return nil, true
 		}
 		out, _ := m.context.RunCommandImmediate(jj.FilesInRevision(rev))
-		return common.FileSearch(m.context.CurrentRevset, rev, out), true
+		return common.FileSearch(m.context.CurrentRevset, rev, out, m.context.Location, m.context.WorkingDirectory), true
 
 	// --- Delegated intents ---
 	case intents.DiffShow:
@@ -809,8 +810,12 @@ func (w *wrapper) View() tea.View {
 	}
 	v := tea.NewView(w.cachedFrame)
 	v.Cursor = w.cachedCursor
-	if config.Current.UI.SetWindowTitle {
-		v.WindowTitle = fmt.Sprintf("jjui - %s", w.ui.context.Location)
+	if config.Current.UI.SetWindowTitle != config.WindowTitleOff {
+		title := w.ui.context.Location
+		if config.Current.UI.SetWindowTitle == config.WindowTitleBase {
+			title = filepath.Base(title)
+		}
+		v.WindowTitle = fmt.Sprintf("jjui - %s", title)
 	}
 	v.AltScreen = true
 	v.ReportFocus = true

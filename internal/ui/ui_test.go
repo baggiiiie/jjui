@@ -108,21 +108,60 @@ const testLogOutput = "○  _PREFIX:abc123_PREFIX:def456 \x1b[1m\x1b[38;5;5mchil
 func TestWrapperView_SetsWindowTitleWhenEnabled(t *testing.T) {
 	origSetWindowTitle := config.Current.UI.SetWindowTitle
 	t.Cleanup(func() { config.Current.UI.SetWindowTitle = origSetWindowTitle })
-	config.Current.UI.SetWindowTitle = true
+	config.Current.UI.SetWindowTitle = config.WindowTitleFull
 
-	ctx := test.NewTestContext(test.NewTestCommandRunner(t))
-	ctx.Location = "/tmp/repo"
-	w := &wrapper{ui: &Model{context: ctx}, cachedFrame: "frame"}
+	tests := []struct {
+		name     string
+		location string
+		expected string
+	}{
+		{"simple", "/tmp/repo", "jjui - /tmp/repo"},
+		{"nested", "/tmp/foo/bar/repo", "jjui - /tmp/foo/bar/repo"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := test.NewTestContext(test.NewTestCommandRunner(t))
+			ctx.Location = tt.location
+			w := &wrapper{ui: &Model{context: ctx}, cachedFrame: "frame"}
 
-	view := w.View()
+			view := w.View()
 
-	assert.Equal(t, "jjui - /tmp/repo", view.WindowTitle)
+			assert.Equal(t, tt.expected, view.WindowTitle)
+		})
+	}
+}
+
+func TestWrapperView_SetsWindowTitleToBaseNameWhenConfigured(t *testing.T) {
+	origSetWindowTitle := config.Current.UI.SetWindowTitle
+	t.Cleanup(func() { config.Current.UI.SetWindowTitle = origSetWindowTitle })
+	config.Current.UI.SetWindowTitle = config.WindowTitleBase
+
+	tests := []struct {
+		name     string
+		location string
+		expected string
+	}{
+		{"simple", "/tmp/repo", "jjui - repo"},
+		{"nested", "/tmp/foo/bar/repo", "jjui - repo"},
+		{"trailing slash", "/tmp/repo/", "jjui - repo"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := test.NewTestContext(test.NewTestCommandRunner(t))
+			ctx.Location = tt.location
+			w := &wrapper{ui: &Model{context: ctx}, cachedFrame: "frame"}
+
+			view := w.View()
+
+			assert.Equal(t, tt.expected, view.WindowTitle)
+		})
+	}
 }
 
 func TestWrapperView_LeavesWindowTitleEmptyWhenDisabled(t *testing.T) {
 	origSetWindowTitle := config.Current.UI.SetWindowTitle
 	t.Cleanup(func() { config.Current.UI.SetWindowTitle = origSetWindowTitle })
-	config.Current.UI.SetWindowTitle = false
+	config.Current.UI.SetWindowTitle = config.WindowTitleOff
 
 	ctx := test.NewTestContext(test.NewTestCommandRunner(t))
 	ctx.Location = "/tmp/repo"
@@ -1174,10 +1213,10 @@ func Test_Update_OpenTargetPickerWhileDiffActiveCreatesRootOverlay(t *testing.T)
 
 	ctx := test.NewTestContext(commandRunner)
 	model := NewUI(ctx)
-	model.diff = diff.NewWithContext(ctx, "diff content", jj.Diff("abc123", ""))
+	model.diff = diff.NewWithContext(ctx, "diff content", jj.Diff("abc123", jj.FileName{}))
 
 	cmd := model.Update(common.OpenTargetPickerMsg{
-		Sources: []source.Source{source.FileSource{Files: []string{"a.go"}}},
+		Sources: []source.Source{source.FileSource{Files: []jj.FileName{jj.NewFileName("a.go")}}},
 	})
 	require.NotNil(t, cmd)
 	test.SimulateModel(model, cmd)
@@ -1197,20 +1236,20 @@ func Test_Update_DiffTargetPickerClosesOnSelectionAndCancel(t *testing.T) {
 
 	ctx := test.NewTestContext(commandRunner)
 	model := NewUI(ctx)
-	model.diff = diff.NewWithContext(ctx, "diff content", jj.Diff("abc123", ""))
+	model.diff = diff.NewWithContext(ctx, "diff content", jj.Diff("abc123", jj.FileName{}))
 
 	cmd := model.Update(common.OpenTargetPickerMsg{
-		Sources: []source.Source{source.FileSource{Files: []string{"a.go"}}},
+		Sources: []source.Source{source.FileSource{Files: []jj.FileName{jj.NewFileName("a.go")}}},
 	})
 	require.NotNil(t, cmd)
 	test.SimulateModel(model, cmd)
 	require.NotNil(t, model.stacked)
 
-	model.Update(target_picker.TargetSelectedMsg{Target: "a.go"})
+	model.Update(target_picker.TargetSelectedMsg{File: jj.NewFileName("a.go")})
 	assert.Nil(t, model.stacked)
 
 	cmd = model.Update(common.OpenTargetPickerMsg{
-		Sources: []source.Source{source.FileSource{Files: []string{"a.go"}}},
+		Sources: []source.Source{source.FileSource{Files: []jj.FileName{jj.NewFileName("a.go")}}},
 	})
 	require.NotNil(t, cmd)
 	test.SimulateModel(model, cmd)
